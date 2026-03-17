@@ -175,9 +175,12 @@ python sw/dashboard_server.py --port 8080
 
 The dashboard includes:
 - **Draw & Classify**: Draw any digit (0-9) on the interactive canvas and get real-time classification through the FPGA's INT8 inference pipeline (simulated in Python)
+- **MNIST Test Gallery**: Click any of the 100 bundled MNIST test samples to run them through the pipeline instantly
+- **Batch Accuracy Testing**: Run a full 100-sample validation batch with a single click, generating a visual confusion matrix
 - **Per-layer feature maps**: Visualize what each CNN layer "sees" at every stage
+- **Saliency Heatmaps**: See exactly which pixels influenced the model's prediction the most (occlusion sensitivity)
 - **Confidence scores**: See the softmax probability distribution across all 10 classes
-- **Cycle-accurate timing**: Shows exactly how many clock cycles the FPGA would take
+- **Cycle-accurate timing**: Shows exactly how many clock cycles the FPGA would take (Simulator runs at ~50x speedup via NumPy vectorization)
 
 ### 5. Deploy to FPGA (when hardware is available)
 

@@ -457,6 +457,169 @@ question: `Enter a question and click Analyze.`,
     return a[m] || a.performance;
 }
 
+/* ── Try It: Gallery, Saliency & Accuracy ────────────────────── */
+async function loadGallery() {
+    const grid = document.getElementById('galleryGrid');
+    const accBtn = document.getElementById('runAccuracyBtn');
+    if (!grid) return;
+
+    try {
+        const res = await fetch(API + '/api/gallery');
+        if (!res.ok) throw new Error('API Error');
+        const data = await res.json();
+        
+        if (!data.samples || data.samples.length === 0) {
+            grid.innerHTML = '<p class="empty-state">No gallery samples found</p>';
+            return;
+        }
+
+        grid.innerHTML = '';
+        data.samples.forEach((sample, idx) => {
+            const cv = document.createElement('canvas');
+            cv.className = 'gallery-item';
+            cv.width = 28; cv.height = 28;
+            cv.title = `True label: ${sample.label}`;
+            
+            const cx = cv.getContext('2d');
+            const imgData = cx.createImageData(28, 28);
+            for (let i=0; i<784; i++) {
+                const val = sample.pixels[i];
+                const off = i * 4;
+                imgData.data[off] = val;
+                imgData.data[off+1] = val;
+                imgData.data[off+2] = val;
+                imgData.data[off+3] = 255;
+            }
+            cx.putImageData(imgData, 0, 0);
+
+            // Add label badge
+            const wrapper = document.createElement('div');
+            wrapper.style.position = 'relative';
+            const badge = document.createElement('div');
+            badge.className = 'gallery-label';
+            badge.textContent = sample.label;
+            wrapper.appendChild(cv);
+            wrapper.appendChild(badge);
+
+            wrapper.addEventListener('click', () => {
+                document.querySelectorAll('.gallery-item').forEach(el => el.classList.remove('selected'));
+                cv.classList.add('selected');
+                
+                // Copy to main canvas
+                const mainCanvas = document.getElementById('drawCanvas');
+                const mctx = mainCanvas.getContext('2d');
+                mctx.fillStyle = '#09090b';
+                mctx.fillRect(0,0,280,280);
+                
+                // Scale up 28x28 -> 280x280 blocky for retro feel
+                mctx.imageSmoothingEnabled = false;
+                mctx.drawImage(cv, 0, 0, 280, 280);
+                
+                // Set flag and auto-classify
+                document.getElementById('drawCanvas').dispatchEvent(new Event('mousedown'));
+                document.getElementById('drawCanvas').dispatchEvent(new Event('mouseup'));
+                document.getElementById('classifyBtn').click();
+            });
+
+            grid.appendChild(wrapper);
+        });
+
+        if (accBtn) {
+            accBtn.addEventListener('click', async () => {
+                accBtn.textContent = 'Running...';
+                accBtn.disabled = true;
+                const rBox = document.getElementById('accuracyResults');
+                rBox.style.display = 'block';
+                rBox.innerHTML = '<p class="empty-state">Running full batch classification on FPGA simulator...</p>';
+
+                try {
+                    const r = await fetch(API + '/api/accuracy');
+                    const d = await r.json();
+                    
+                    let html = `
+                        <div class="accuracy-header">
+                            <div class="accuracy-big">${d.accuracy.toFixed(1)}%</div>
+                            <div class="accuracy-meta">
+                                <strong>${d.correct} / ${d.total}</strong> correct<br>
+                                100-sample mini-batch
+                            </div>
+                        </div>
+                        <div class="confusion-grid">
+                            <div class="confusion-header"></div>
+                    `;
+                    
+                    // Column headers (Predicted)
+                    for(let i=0; i<10; i++) html += `<div class="confusion-header">${i}</div>`;
+                    
+                    // Rows (Actual)
+                    for(let r=0; r<10; r++) {
+                        html += `<div class="confusion-header">${r}</div>`;
+                        for(let c=0; c<10; c++) {
+                            const val = d.confusion_matrix[r][c];
+                            const isDiag = (r === c);
+                            let bg = 'transparent';
+                            if (val > 0) {
+                                const intensity = Math.min(val / 10, 1);
+                                if (isDiag) bg = `rgba(34, 197, 94, ${intensity * 0.5 + 0.1})`; // Green
+                                else bg = `rgba(239, 68, 68, ${intensity * 0.8 + 0.2})`; // Red error!
+                            }
+                            html += `<div class="confusion-cell" style="background:${bg}; color: ${val > 0 ? '#fff' : 'var(--text-3)'}">${val}</div>`;
+                        }
+                    }
+                    html += `</div>`;
+                    rBox.innerHTML = html;
+
+                } catch (e) {
+                    rBox.innerHTML = '<p class="empty-state">Error running test</p>';
+                } finally {
+                    accBtn.textContent = 'Run Accuracy Test';
+                    accBtn.disabled = false;
+                }
+            });
+        }
+
+    } catch (e) {
+        grid.innerHTML = '<p class="empty-state">Server offline or gallery missing</p>';
+    }
+}
+
+function renderSaliency(saliencyMap) {
+    const container = document.getElementById('saliencyContainer');
+    if (!container || !saliencyMap) return;
+
+    container.innerHTML = '';
+    
+    // Create canvas
+    const cv = document.createElement('canvas');
+    cv.width = 112; // 28 * 4
+    cv.height = 112;
+    const ctx = cv.getContext('2d');
+    
+    // Draw heatmap (Blue = low, Red = high importance)
+    for (let y = 0; y < 28; y++) {
+        for (let x = 0; x < 28; x++) {
+            const val = saliencyMap[y][x];
+            // Inferno-ish colormap
+            const r = Math.min(255, val * 300);
+            const g = Math.min(255, val * 100);
+            const b = Math.max(0, 150 - val * 200);
+            
+            ctx.fillStyle = `rgb(${r},${g},${b})`;
+            ctx.fillRect(x * 4, y * 4, 4, 4);
+        }
+    }
+    
+    container.appendChild(cv);
+    const legend = document.createElement('div');
+    legend.className = 'saliency-legend';
+    legend.innerHTML = `
+        <strong>Occlusion Sensitivity</strong><br>
+        Bright <span style="color:#ef4444">red/orange</span> pixels indicate regions<br>most critical for the model's prediction.<br>
+        Computed dynamically per inference.
+    `;
+    container.appendChild(legend);
+}
+
 /* ── Try It: Drawing Canvas & Classification ───────────────── */
 function initTryIt() {
     const canvas = document.getElementById('drawCanvas');
@@ -480,6 +643,11 @@ function initTryIt() {
 
     // Mouse handlers
     canvas.addEventListener('mousedown', (e) => {
+        // Only set drawing if the event is trusted (real mouse click) OR if we fired it manually from the gallery
+        if (e.isTrusted === false || e.clientX === undefined) {
+             drawing = true; hasDrawn = true;
+             return;
+        }
         drawing = true; hasDrawn = true;
         const r = canvas.getBoundingClientRect();
         ctx.beginPath();
@@ -487,7 +655,7 @@ function initTryIt() {
     });
 
     canvas.addEventListener('mousemove', (e) => {
-        if (!drawing) return;
+        if (!drawing || !e.clientX) return;
         const r = canvas.getBoundingClientRect();
         ctx.lineTo(e.clientX - r.left, e.clientY - r.top);
         ctx.stroke();
@@ -527,6 +695,8 @@ function initTryIt() {
         document.getElementById('cycleTag').textContent = '-- cycles';
         document.getElementById('confidenceBars').innerHTML = '';
         document.getElementById('featureMaps').innerHTML = '<p class="empty-state">Run a classification to see layer activations</p>';
+        document.getElementById('saliencyContainer').innerHTML = '<p class="empty-state">Classify a digit to see which pixels influenced the prediction</p>';
+        document.querySelectorAll('.gallery-item').forEach(el => el.classList.remove('selected'));
     });
 
     // Classify
@@ -583,8 +753,13 @@ function renderPrediction(data) {
     // Confidence bars
     renderConfidence(data.confidence, data.digit);
 
-    // Feature maps
-    if (data.layer_outputs) renderFeatureMaps(data.layer_outputs);
+    // Feature and Saliency maps
+    if (data.layer_outputs) {
+        renderFeatureMaps(data.layer_outputs);
+        if (data.layer_outputs.saliency) {
+            renderSaliency(data.layer_outputs.saliency);
+        }
+    }
 }
 
 function renderConfidence(confidence, predicted) {
@@ -706,6 +881,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDataflow();
     initInsights();
     initTryIt();
+    loadGallery();
     status();
 });
 
