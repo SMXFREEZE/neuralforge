@@ -1,4 +1,4 @@
-# ⚡ NeuralForge — FPGA Neural Network Inference Accelerator
+# NeuralForge — FPGA Neural Network Inference Accelerator
 
 <p align="center">
   <strong>A custom hardware accelerator implementing INT8 LeNet-5 CNN inference using a systolic array architecture on Xilinx 7-Series FPGAs</strong>
@@ -14,7 +14,7 @@
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 Inspired by **Google TPU v1** (weight-stationary dataflow) and **NVIDIA Tensor Cores** (fused MAC units), NeuralForge implements a complete inference pipeline in synthesizable Verilog:
 
@@ -49,7 +49,7 @@ Host PC (Python)                    FPGA (Xilinx 7-Series)
 
 ---
 
-## 📊 Performance
+## Performance
 
 | Metric | CPU (PyTorch, i7) | FPGA (XC7A35T, 100 MHz) | Speedup |
 |--------|-------------------|-------------------------|---------|
@@ -62,7 +62,7 @@ Host PC (Python)                    FPGA (Xilinx 7-Series)
 
 ---
 
-## 🗂️ Project Structure
+## Project Structure
 
 ```
 neuraforge/
@@ -99,7 +99,7 @@ neuraforge/
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -168,7 +168,7 @@ python sw/host.py --port COM3 --samples 100
 
 ---
 
-## 🔬 Technical Deep-Dive
+## Technical Deep-Dive
 
 ### Systolic Array Dataflow
 
@@ -212,7 +212,7 @@ Stage 4: Final sum + bias → output
 
 ---
 
-## 📈 Resource Utilization (Estimated, XC7A35T)
+## Resource Utilization (Estimated, XC7A35T)
 
 | Resource | Used | Available | Utilization |
 |----------|------|-----------|-------------|
@@ -223,7 +223,7 @@ Stage 4: Final sum + bias → output
 
 ---
 
-## 🛠️ Tools & Technologies
+## Tools & Technologies
 
 - **HDL**: Verilog (IEEE 1364-2005)
 - **Simulation**: Icarus Verilog, GTKWave
@@ -235,7 +235,7 @@ Stage 4: Final sum + bias → output
 
 ---
 
-## 📚 References
+## References
 
 - [1] N. P. Jouppi et al., "In-Datacenter Performance Analysis of a Tensor Processing Unit," ISCA 2017
 - [2] NVIDIA, "Tensor Core Architecture," NVIDIA Ampere GPU Architecture Whitepaper, 2020
@@ -244,7 +244,7 @@ Stage 4: Final sum + bias → output
 
 ---
 
-## 📄 License
+## License
 
 MIT License — see [LICENSE](LICENSE) for details.
 
