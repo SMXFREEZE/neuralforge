@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NeuralForge — FPGA Accelerator Dashboard</title>
+    <meta name="description" content="Hardware performance dashboard for the NeuralForge FPGA neural network inference accelerator.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Ambient background -->
+    <div class="ambient">
+        <div class="ambient-orb orb-1"></div>
+        <div class="ambient-orb orb-2"></div>
+    </div>
+
+    <!-- Header -->
+    <header id="header">
+        <div class="header-inner">
+            <a href="#" class="brand">
+                <svg class="brand-icon" viewBox="0 0 28 28" fill="none">
+                    <rect x="2" y="2" width="10" height="10" rx="2.5" stroke="currentColor" stroke-width="1.6"/>
+                    <rect x="16" y="2" width="10" height="10" rx="2.5" stroke="currentColor" stroke-width="1.6"/>
+                    <rect x="2" y="16" width="10" height="10" rx="2.5" stroke="currentColor" stroke-width="1.6"/>
+                    <rect x="16" y="16" width="10" height="10" rx="2.5" fill="currentColor" opacity="0.35"/>
+                    <circle cx="21" cy="21" r="2.5" fill="currentColor"/>
+                </svg>
+                <span class="brand-name">NeuralForge</span>
+            </a>
+
+            <nav id="mainNav">
+                <button class="nav-link active" data-tab="overview">Overview</button>
+                <button class="nav-link" data-tab="performance">Performance</button>
+                <button class="nav-link" data-tab="architecture">Architecture</button>
+                <button class="nav-link" data-tab="quantization">Quantization</button>
+                <button class="nav-link" data-tab="insights">AI Insights</button>
+            </nav>
+
+            <div class="header-right">
+                <div class="chip" id="statusChip">
+                    <span class="chip-dot"></span>
+                    <span class="chip-label" id="statusLabel">Connecting</span>
+                </div>
+                <button class="cta-btn" id="headerAnalyzeBtn">Run Analysis</button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Content -->
+    <main id="content">
+
+        <!-- === OVERVIEW === -->
+        <section class="view active" id="view-overview">
+
+            <!-- Hero numbers -->
+            <div class="bento">
+                <div class="bento-card stat-card" id="cardSpeedup">
+                    <p class="stat-label">Inference Speedup</p>
+                    <h2 class="stat-value" data-to="5.1" data-decimals="1">0</h2>
+                    <p class="stat-sub">times faster than CPU</p>
+                    <canvas class="spark" id="sparkSpeedup"></canvas>
+                </div>
+                <div class="bento-card stat-card" id="cardThroughput">
+                    <p class="stat-label">Throughput</p>
+                    <h2 class="stat-value" data-to="2439" data-decimals="0">0</h2>
+                    <p class="stat-sub">images per second</p>
+                    <canvas class="spark" id="sparkThroughput"></canvas>
+                </div>
+                <div class="bento-card stat-card" id="cardLatency">
+                    <p class="stat-label">Latency</p>
+                    <h2 class="stat-value" data-to="0.41" data-decimals="2">0</h2>
+                    <p class="stat-sub">ms per inference</p>
+                    <canvas class="spark" id="sparkLatency"></canvas>
+                </div>
+                <div class="bento-card stat-card" id="cardEfficiency">
+                    <p class="stat-label">Energy Efficiency</p>
+                    <h2 class="stat-value" data-to="668" data-decimals="0">0</h2>
+                    <p class="stat-sub">times more efficient</p>
+                    <canvas class="spark" id="sparkEfficiency"></canvas>
+                </div>
+            </div>
+
+            <!-- Architecture + Systolic -->
+            <div class="grid-2">
+                <div class="bento-card" id="pipelineCard">
+                    <div class="card-header">
+                        <h3>Inference Pipeline</h3>
+                        <span class="tag">End-to-end</span>
+                    </div>
+                    <div id="pipelineList" class="pipeline-list"></div>
+                </div>
+                <div class="bento-card" id="systolicCard">
+                    <div class="card-header">
+                        <h3>Systolic Array</h3>
+                        <span class="tag">4x4 weight-stationary</span>
+                    </div>
+                    <div class="systolic-wrap">
+                        <div class="systolic" id="systolicGrid"></div>
+                        <div class="systolic-legend">
+                            <span class="legend-item"><span class="dot dot-idle"></span>Idle</span>
+                            <span class="legend-item"><span class="dot dot-active"></span>Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Resources -->
+            <div class="bento-card" id="resourceCard">
+                <div class="card-header">
+                    <h3>FPGA Resource Utilization</h3>
+                    <span class="tag">XC7A35T</span>
+                </div>
+                <div class="res-grid" id="resGrid"></div>
+            </div>
+        </section>
+
+        <!-- === PERFORMANCE === -->
+        <section class="view" id="view-performance">
+            <div class="grid-2">
+                <div class="bento-card">
+                    <div class="card-header"><h3>Latency Distribution</h3><span class="tag">ms</span></div>
+                    <div class="chart-wrap"><canvas id="chartLatency"></canvas></div>
+                </div>
+                <div class="bento-card">
+                    <div class="card-header"><h3>Throughput Comparison</h3><span class="tag">img/s</span></div>
+                    <div class="chart-wrap"><canvas id="chartThroughput"></canvas></div>
+                </div>
+            </div>
+            <div class="bento-card">
+                <div class="card-header"><h3>Pipeline Stage Cycles</h3><span class="tag">100 MHz</span></div>
+                <div class="chart-wrap"><canvas id="chartPipeline"></canvas></div>
+            </div>
+            <div class="bento-card">
+                <div class="card-header"><h3>Hardware Performance Counters</h3><span class="tag">Cycle-accurate</span></div>
+                <div class="counters" id="countersGrid"></div>
+            </div>
+        </section>
+
+        <!-- === ARCHITECTURE === -->
+        <section class="view" id="view-architecture">
+            <div class="bento-card">
+                <div class="card-header"><h3>RTL Module Hierarchy</h3><span class="tag">Verilog</span></div>
+                <div id="moduleTree" class="tree"></div>
+            </div>
+            <div class="grid-2">
+                <div class="bento-card">
+                    <div class="card-header"><h3>LUT Distribution</h3><span class="tag">By module</span></div>
+                    <div class="chart-wrap"><canvas id="chartPie"></canvas></div>
+                </div>
+                <div class="bento-card">
+                    <div class="card-header"><h3>Data Path</h3><span class="tag">Activation flow</span></div>
+                    <div id="dataflow" class="dataflow"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- === QUANTIZATION === -->
+        <section class="view" id="view-quantization">
+            <div class="bento quant-stats">
+                <div class="bento-card stat-card mini"><p class="stat-label">FP32 Accuracy</p><h2 class="stat-value">99.2%</h2></div>
+                <div class="bento-card stat-card mini"><p class="stat-label">INT8 Accuracy</p><h2 class="stat-value">98.5%</h2></div>
+                <div class="bento-    card stat-card mini"><p class="stat-label">Accuracy Drop</p><h2 class="stat-value">0.7%</h2></div>
+                <div class="bento-card stat-card mini"><p class="stat-label">Compression</p><h2 class="stat-value">4x</h2></div>
+            </div>
+            <div class="bento-card">
+                <div class="card-header"><h3>Per-Layer Quantization Error</h3><span class="tag">MSE x10^5</span></div>
+                <div class="chart-wrap"><canvas id="chartQuantErr"></canvas></div>
+            </div>
+            <div class="bento-card">
+                <div class="card-header"><h3>Layer Scale Factors</h3><span class="tag">max|w| / 127</span></div>
+                <div class="chart-wrap"><canvas id="chartScales"></canvas></div>
+            </div>
+        </section>
+
+        <!-- === AI INSIGHTS === -->
+        <section class="view" id="view-insights">
+            <div class="bento-card insights-card">
+                <div class="card-header">
+                    <h3>AI-Powered Analysis</h3>
+                    <span class="tag" id="backendTag">Amazon Bedrock</span>
+                </div>
+                <div class="insights-controls">
+                    <select id="aiMode">
+                        <option value="performance">Performance Analysis</option>
+                        <option value="quantization">Quantization Quality</option>
+                        <option value="architecture">Architecture Review</option>
+                        <option value="question">Ask a Question</option>
+                    </select>
+                    <input type="text" id="aiQuestion" placeholder="Ask about the accelerator design..." style="display:none">
+                    <button class="cta-btn" id="runAnalysisBtn">Analyze</button>
+                </div>
+                <div class="insights-output" id="aiOutput">
+                    <p class="empty-state">Choose an analysis mode and click Analyze to get hardware-level insights.</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>

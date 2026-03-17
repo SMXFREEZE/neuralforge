@@ -1,0 +1,51 @@
+# Vivado / Xilinx
+*.jou
+*.log
+*.str
+*.zip
+*.dcp
+*.bit
+*.bin
+*.hwdef
+*.hdf
+*.xsa
+*.ltx
+*.pdi
+.Xil/
+.ip_user_files/
+.hw/
+*.cache/
+*.sim/
+*.runs/
+*.xpr
+
+# Icarus Verilog / Simulation
+*.vcd
+sim/*_test
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+venv/
+env/
+.env
+
+# MacOS
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project specific ignores
+weights/generated_*.mem
+weights/generated_*.coe
