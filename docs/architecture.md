@@ -22,20 +22,23 @@ and **NVIDIA Tensor Cores** (fused multiply-accumulate).
 │                     FPGA (Xilinx 7-Series)           │           │
 │                                                      ▼           │
 │  ┌──────────────────────────────────────────────────────────┐    │
-│  │                   UART Interface                         │    │
-│  │              (8N1, RX/TX, byte framing)                  │    │
+│  │     Dual Interfaces (UART vs AMBA AXI4-Stream)           │    │
+│  │                                                          │    │
+│  │  [Standalone Mode]            [SoC IP Mode]              │    │
+│  │  top.v                        axi_stream_wrapper.v       │    │
+│  │  UART RX/TX                   S_AXIS / M_AXIS            │    │
 │  └────────────────────────┬─────────────────────────────────┘    │
 │                           │                                      │
 │  ┌────────────────────────▼─────────────────────────────────┐    │
-│  │              Input Buffer (Ping-Pong)                     │    │
-│  │         (Double-buffered, 784 bytes each)                 │    │
+│  │              Input Buffer (Ping-Pong)                    │    │
+│  │         (Double-buffered, 784 bytes each)                │    │
 │  └────────────────────────┬─────────────────────────────────┘    │
 │                           │                                      │
 │  ┌────────────────────────▼─────────────────────────────────┐    │
-│  │                 CNN Inference Pipeline                     │    │
-│  │                                                           │    │
-│  │  ┌─────────┐  ┌──────┐  ┌─────────┐  ┌──────┐           │    │
-│  │  │ Conv1   │─▶│ ReLU │─▶│MaxPool  │─▶│ Conv2│──▶...     │    │
+│  │                 CNN Inference Pipeline                   │    │
+│  │                                                          │    │
+│  │  ┌─────────┐  ┌──────┐  ┌─────────┐  ┌──────┐          │    │
+│  │  │ Conv1   │─▶│ ReLU │─▶│MaxPool  │─▶│ Conv2│──▶...    │    │
 │  │  │ (3x3)   │  │      │  │ (2x2)   │  │(3x3) │           │    │
 │  │  └─────────┘  └──────┘  └─────────┘  └──────┘           │    │
 │  │                                                           │    │
@@ -103,16 +106,23 @@ and **NVIDIA Tensor Cores** (fused multiply-accumulate).
 ## Module Hierarchy
 
 ```
-top.v
-├── uart_interface.v      — UART 8N1 transceiver
-├── input_buffer.v        — Ping-pong double buffer
-├── weight_buffer.v       — BRAM weight storage
-├── conv_engine.v         — 3×3 convolution
-│   └── (uses products internally)
-├── activation.v          — ReLU / LeakyReLU
-├── pooling.v             — 2×2 max pooling
-└── systolic_array.v      — 4×4 matrix multiply
-    └── mac_unit.v        — INT8 MAC (×16 instances)
+NeuralForge/
+├── [Top-level implementations]
+│   ├── top.v                 — Standalone top (UART 8N1)
+│   └── axi_stream_wrapper.v  — IP Core wrapper (AMBA AXI4-Stream)
+│
+├── [Peripherals & I/O]
+│   ├── uart_interface.v      — UART transceiver
+│   ├── input_buffer.v        — Ping-pong double buffer
+│   └── weight_buffer.v       — BRAM weight storage
+│
+├── [Compute Engine]
+│   ├── layer_controller.v    — Layer-by-layer master FSM
+│   ├── conv_engine.v         — 3×3 convolution pipeline
+│   ├── activation.v          — ReLU / LeakyReLU masking
+│   ├── pooling.v             — 2×2 max pooling tree
+│   └── systolic_array.v      — 4×4 weight-stationary array
+│       └── mac_unit.v        — INT8 MAC (×16 instances)
 ```
 
 ## FPGA Resource Estimates (XC7A35T)
