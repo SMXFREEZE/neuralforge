@@ -59,9 +59,21 @@ class FPGASimulator:
         self.cycle_count = 0
         layer_outputs = {}
 
-        # Normalize to INT8 range [-128, 127] like the FPGA input buffer
+        # Preprocess to match MNIST training pipeline:
+        # 1. Normalize to [0, 1]
+        # 2. Apply MNIST normalization: (x - 0.1307) / 0.3081
+        # 3. Quantize to INT8 for the hardware pipeline
         img = np.array(image_pixels, dtype=np.float32).reshape(28, 28)
-        img_int8 = np.clip((img / 255.0 * 255 - 128), -128, 127).astype(np.int8)
+        img = img / 255.0  # [0, 1]
+
+        # Center the digit using center-of-mass (MNIST digits are centered)
+        img = self._center_image(img)
+
+        # Apply MNIST normalization
+        img_norm = (img - 0.1307) / 0.3081
+
+        # Quantize to INT8: scale normalized values to [-128, 127]
+        img_int8 = np.clip(np.round(img_norm * 40), -128, 127).astype(np.int8)
         layer_outputs['input'] = img_int8.tolist()
 
         # === CONV1: 1 input channel → 6 output channels, 5×5 kernel ===
@@ -146,6 +158,25 @@ class FPGASimulator:
         }
 
     # ===== Hardware-equivalent operations =====
+
+    def _center_image(self, img):
+        """
+        Center the digit using center-of-mass.
+        MNIST digits are centered in their 28x28 frame — hand-drawn 
+        canvas digits are often off-center, which confuses the model.
+        """
+        from scipy import ndimage
+        try:
+            cy, cx = ndimage.center_of_mass(img)
+            if np.isnan(cy) or np.isnan(cx):
+                return img
+            shift_y = 14 - cy
+            shift_x = 14 - cx
+            shifted = ndimage.shift(img, [shift_y, shift_x], mode='constant', cval=0.0)
+            return shifted
+        except Exception:
+            # If scipy isn't available, skip centering
+            return img
 
     def _conv2d(self, input_arr, weights, bias, pad=0):
         """
