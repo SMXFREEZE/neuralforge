@@ -12,7 +12,6 @@ import os
 import sys
 import json
 import time
-import asyncio
 import argparse
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -41,6 +40,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     analyzer = None
     simulator = None
     project_root = None
+    gallery_data = None
 
     def __init__(self, *args, **kwargs):
         # Serve from dashboard directory
@@ -58,6 +58,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         else:
             super().do_GET()
 
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests."""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+
     def do_POST(self):
         parsed = urlparse(self.path)
         path = parsed.path
@@ -72,6 +80,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             body = self.rfile.read(content_length).decode('utf-8')
             data = json.loads(body) if body else {}
             self._handle_classify(data)
+        elif path == '/api/accuracy':
+            self._handle_accuracy_test()
         else:
             self.send_error(404, "Not Found")
 
@@ -120,6 +130,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         elif path == '/api/perf_counters':
             self._send_json(self._generate_perf_counter_data())
 
+        elif path == '/api/gallery':
+            self._handle_gallery()
+
         else:
             self.send_error(404, "API endpoint not found")
 
@@ -161,6 +174,32 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
         try:
             result = DashboardHandler.simulator.classify(pixels)
+            self._send_json(result)
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
+    def _handle_gallery(self):
+        """Return MNIST gallery samples."""
+        if DashboardHandler.gallery_data:
+            self._send_json(DashboardHandler.gallery_data)
+        else:
+            self._send_json({'samples': [], 'error': 'Gallery not loaded'})
+
+    def _handle_accuracy_test(self):
+        """Run batch accuracy test on gallery data."""
+        if not DashboardHandler.simulator:
+            self._send_json({'error': 'Simulator not available'}, 500)
+            return
+        if not DashboardHandler.gallery_data:
+            self._send_json({'error': 'Gallery not loaded'}, 500)
+            return
+
+        samples = DashboardHandler.gallery_data['samples']
+        images = [s['pixels'] for s in samples]
+        labels = [s['label'] for s in samples]
+
+        try:
+            result = DashboardHandler.simulator.test_accuracy(images, labels)
             self._send_json(result)
         except Exception as e:
             self._send_json({'error': str(e)}, 500)
@@ -291,6 +330,16 @@ def main():
         DashboardHandler.simulator = None
         sim_status = 'Not available'
 
+    # Load gallery
+    gallery_path = os.path.join(project_root, 'weights', 'mnist_gallery.json')
+    if os.path.exists(gallery_path):
+        with open(gallery_path) as f:
+            DashboardHandler.gallery_data = json.load(f)
+        gallery_status = f"{len(DashboardHandler.gallery_data.get('samples', []))} samples"
+    else:
+        DashboardHandler.gallery_data = None
+        gallery_status = 'Not found'
+
     server = HTTPServer(('0.0.0.0', args.port), DashboardHandler)
 
     print("=" * 60)
@@ -299,6 +348,7 @@ def main():
     print(f"  URL: http://localhost:{args.port}")
     print(f"  AI Backend: {DashboardHandler.analyzer.backend_name if DashboardHandler.analyzer else 'none'}")
     print(f"  Simulator: {sim_status}")
+    print(f"  Gallery: {gallery_status}")
     print(f"  Project: {project_root}")
     print(f"\n  Press Ctrl+C to stop")
     print("=" * 60)

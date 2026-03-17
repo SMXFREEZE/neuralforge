@@ -121,6 +121,21 @@
 
         <!-- === TRY IT === -->
         <section class="view" id="view-tryit">
+            <!-- Top: MNIST Sample Gallery -->
+            <div class="bento-card" id="galleryCard">
+                <div class="card-header">
+                    <h3>MNIST Test Gallery</h3>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <span class="tag">Click any sample</span>
+                        <button class="cta-btn cta-small" id="runAccuracyBtn">Run Accuracy Test</button>
+                    </div>
+                </div>
+                <div class="gallery-grid" id="galleryGrid">
+                    <p class="empty-state">Loading samples...</p>
+                </div>
+                <div class="accuracy-results" id="accuracyResults" style="display:none"></div>
+            </div>
+
             <div class="tryit-layout">
                 <!-- Left: Canvas -->
                 <div class="bento-card tryit-canvas-card">
@@ -160,6 +175,16 @@
                             <span class="tag">Softmax</span>
                         </div>
                         <div class="confidence-bars" id="confidenceBars"></div>
+                    </div>
+
+                    <div class="bento-card">
+                        <div class="card-header">
+                            <h3>Saliency Map</h3>
+                            <span class="tag">Pixel importance</span>
+                        </div>
+                        <div class="saliency-container" id="saliencyContainer">
+                            <p class="empty-state">Classify a digit to see which pixels influenced the prediction</p>
+                        </div>
                     </div>
 
                     <div class="bento-card">
