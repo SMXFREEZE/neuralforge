@@ -27,12 +27,19 @@ try:
 except ImportError:
     HAS_ANALYZER = False
 
+try:
+    from fpga_simulator import FPGASimulator
+    HAS_SIMULATOR = True
+except ImportError:
+    HAS_SIMULATOR = False
+
 
 class DashboardHandler(SimpleHTTPRequestHandler):
     """HTTP request handler with API routing."""
 
     # Class-level shared state
     analyzer = None
+    simulator = None
     project_root = None
 
     def __init__(self, *args, **kwargs):
@@ -60,6 +67,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             body = self.rfile.read(content_length).decode('utf-8')
             data = json.loads(body) if body else {}
             self._handle_analyze(data)
+        elif path == '/api/classify':
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length).decode('utf-8')
+            data = json.loads(body) if body else {}
+            self._handle_classify(data)
         else:
             self.send_error(404, "Not Found")
 
@@ -133,6 +145,23 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
             self._send_json({'analysis': result})
 
+        except Exception as e:
+            self._send_json({'error': str(e)}, 500)
+
+    def _handle_classify(self, data):
+        """Run digit classification through the FPGA simulator."""
+        if not DashboardHandler.simulator:
+            self._send_json({'error': 'Simulator not available'}, 500)
+            return
+
+        pixels = data.get('pixels', [])
+        if len(pixels) != 784:
+            self._send_json({'error': f'Expected 784 pixels, got {len(pixels)}'}, 400)
+            return
+
+        try:
+            result = DashboardHandler.simulator.classify(pixels)
+            self._send_json(result)
         except Exception as e:
             self._send_json({'error': str(e)}, 500)
 
@@ -251,14 +280,26 @@ def main():
     else:
         DashboardHandler.analyzer = None
 
+    if HAS_SIMULATOR:
+        try:
+            DashboardHandler.simulator = FPGASimulator()
+            sim_status = 'Ready'
+        except Exception as e:
+            DashboardHandler.simulator = None
+            sim_status = f'Error: {e}'
+    else:
+        DashboardHandler.simulator = None
+        sim_status = 'Not available'
+
     server = HTTPServer(('0.0.0.0', args.port), DashboardHandler)
 
     print("=" * 60)
     print("  NeuralForge Dashboard Server")
     print("=" * 60)
-    print(f"  🌐 URL: http://localhost:{args.port}")
-    print(f"  🤖 AI Backend: {DashboardHandler.analyzer.backend_name if DashboardHandler.analyzer else 'none'}")
-    print(f"  📁 Project: {project_root}")
+    print(f"  URL: http://localhost:{args.port}")
+    print(f"  AI Backend: {DashboardHandler.analyzer.backend_name if DashboardHandler.analyzer else 'none'}")
+    print(f"  Simulator: {sim_status}")
+    print(f"  Project: {project_root}")
     print(f"\n  Press Ctrl+C to stop")
     print("=" * 60)
 

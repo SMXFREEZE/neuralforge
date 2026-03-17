@@ -457,6 +457,214 @@ question: `Enter a question and click Analyze.`,
     return a[m] || a.performance;
 }
 
+/* ── Try It: Drawing Canvas & Classification ───────────────── */
+function initTryIt() {
+    const canvas = document.getElementById('drawCanvas');
+    const classifyBtn = document.getElementById('classifyBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    if (!canvas || !classifyBtn) return;
+
+    const ctx = canvas.getContext('2d');
+    let drawing = false;
+    let hasDrawn = false;
+
+    // Black background
+    ctx.fillStyle = '#09090b';
+    ctx.fillRect(0, 0, 280, 280);
+
+    // Drawing settings
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 16;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Mouse handlers
+    canvas.addEventListener('mousedown', (e) => {
+        drawing = true; hasDrawn = true;
+        const r = canvas.getBoundingClientRect();
+        ctx.beginPath();
+        ctx.moveTo(e.clientX - r.left, e.clientY - r.top);
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!drawing) return;
+        const r = canvas.getBoundingClientRect();
+        ctx.lineTo(e.clientX - r.left, e.clientY - r.top);
+        ctx.stroke();
+    });
+
+    canvas.addEventListener('mouseup', () => drawing = false);
+    canvas.addEventListener('mouseleave', () => drawing = false);
+
+    // Touch handlers
+    canvas.addEventListener('touchstart', (e) => {
+        e.preventDefault(); drawing = true; hasDrawn = true;
+        const r = canvas.getBoundingClientRect();
+        const t = e.touches[0];
+        ctx.beginPath();
+        ctx.moveTo(t.clientX - r.left, t.clientY - r.top);
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (!drawing) return;
+        const r = canvas.getBoundingClientRect();
+        const t = e.touches[0];
+        ctx.lineTo(t.clientX - r.left, t.clientY - r.top);
+        ctx.stroke();
+    });
+
+    canvas.addEventListener('touchend', () => drawing = false);
+
+    // Clear
+    clearBtn.addEventListener('click', () => {
+        ctx.fillStyle = '#09090b';
+        ctx.fillRect(0, 0, 280, 280);
+        ctx.strokeStyle = '#ffffff';
+        hasDrawn = false;
+        document.getElementById('predictedDigit').textContent = '?';
+        document.getElementById('predLatency').textContent = 'Draw a digit to begin';
+        document.getElementById('cycleTag').textContent = '-- cycles';
+        document.getElementById('confidenceBars').innerHTML = '';
+        document.getElementById('featureMaps').innerHTML = '<p class="empty-state">Run a classification to see layer activations</p>';
+    });
+
+    // Classify
+    classifyBtn.addEventListener('click', async () => {
+        if (!hasDrawn) return;
+
+        // Downsample 280×280 canvas → 28×28 grayscale
+        const tmp = document.createElement('canvas');
+        tmp.width = 28; tmp.height = 28;
+        const tctx = tmp.getContext('2d');
+        tctx.drawImage(canvas, 0, 0, 28, 28);
+        const imgData = tctx.getImageData(0, 0, 28, 28);
+        const pixels = [];
+        for (let i = 0; i < imgData.data.length; i += 4) {
+            pixels.push(imgData.data[i]); // R channel (grayscale)
+        }
+
+        classifyBtn.textContent = 'Classifying...';
+        classifyBtn.disabled = true;
+
+        try {
+            const res = await fetch(API + '/api/classify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pixels }),
+            });
+
+            if (!res.ok) throw new Error('API error');
+            const data = await res.json();
+            renderPrediction(data);
+        } catch (err) {
+            document.getElementById('predictedDigit').textContent = '!';
+            document.getElementById('predLatency').textContent = 'Error: server not running';
+        } finally {
+            classifyBtn.textContent = 'Classify';
+            classifyBtn.disabled = false;
+        }
+    });
+}
+
+function renderPrediction(data) {
+    // Big digit
+    const digitEl = document.getElementById('predictedDigit');
+    digitEl.textContent = data.digit;
+    digitEl.classList.remove('flash');
+    void digitEl.offsetWidth; // Force reflow
+    digitEl.classList.add('flash');
+
+    // Cycle count and latency
+    document.getElementById('cycleTag').textContent = data.cycles.toLocaleString() + ' cycles';
+    document.getElementById('predLatency').textContent =
+        `${data.latency_us} us at 100 MHz | ${data.cycles.toLocaleString()} cycles`;
+
+    // Confidence bars
+    renderConfidence(data.confidence, data.digit);
+
+    // Feature maps
+    if (data.layer_outputs) renderFeatureMaps(data.layer_outputs);
+}
+
+function renderConfidence(confidence, predicted) {
+    const container = document.getElementById('confidenceBars');
+    container.innerHTML = '';
+
+    confidence.forEach((pct, i) => {
+        const row = document.createElement('div');
+        row.className = 'conf-row';
+        const isTop = (i === predicted);
+
+        row.innerHTML = `
+            <span class="conf-label ${isTop ? 'highlight' : ''}">${i}</span>
+            <div class="conf-track">
+                <div class="conf-fill ${isTop ? 'top' : ''}" style="width: 0%"></div>
+            </div>
+            <span class="conf-pct ${isTop ? 'highlight' : ''}">${pct.toFixed(1)}%</span>
+        `;
+        container.appendChild(row);
+
+        // Animate the bar
+        requestAnimationFrame(() => {
+            row.querySelector('.conf-fill').style.width = Math.max(pct, 0.5) + '%';
+        });
+    });
+}
+
+function renderFeatureMaps(layers) {
+    const container = document.getElementById('featureMaps');
+    container.innerHTML = '';
+
+    const layerNames = [
+        ['conv1', 'Conv1 Output (6 maps, 24x24)'],
+        ['relu1', 'ReLU1 (6 maps, 24x24)'],
+        ['pool1', 'Pool1 (6 maps, 12x12)'],
+        ['conv2', 'Conv2 Output (16 maps, 8x8)'],
+        ['pool2', 'Pool2 (16 maps, 4x4)'],
+    ];
+
+    layerNames.forEach(([key, label]) => {
+        const maps = layers[key];
+        if (!maps || !Array.isArray(maps)) return;
+
+        const section = document.createElement('div');
+        section.className = 'fmap-section';
+        section.innerHTML = `<div class="fmap-label">${label}</div><div class="fmap-grid"></div>`;
+        const grid = section.querySelector('.fmap-grid');
+
+        maps.forEach((map2d) => {
+            const h = map2d.length;
+            const w = map2d[0].length;
+            const scale = Math.max(2, Math.floor(48 / Math.max(h, w)));
+            const cv = document.createElement('canvas');
+            cv.width = w * scale; cv.height = h * scale;
+            const cx = cv.getContext('2d');
+
+            // Find range for normalization
+            let mn = Infinity, mx = -Infinity;
+            for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+                mn = Math.min(mn, map2d[y][x]);
+                mx = Math.max(mx, map2d[y][x]);
+            }
+            const range = mx - mn || 1;
+
+            for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+                const val = Math.round(((map2d[y][x] - mn) / range) * 255);
+                // Blue channel tint for a premium look
+                const r = Math.round(val * 0.23);
+                const g = Math.round(val * 0.51);
+                const b = Math.round(val * 0.96);
+                cx.fillStyle = `rgb(${r},${g},${b})`;
+                cx.fillRect(x * scale, y * scale, scale, scale);
+            }
+            grid.appendChild(cv);
+        });
+
+        container.appendChild(section);
+    });
+}
+
 /* ── Status ─────────────────────────────────────────────────── */
 async function status() {
     try {
@@ -497,5 +705,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTree();
     initDataflow();
     initInsights();
+    initTryIt();
     status();
 });
+

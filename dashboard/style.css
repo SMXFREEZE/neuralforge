@@ -741,6 +741,201 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* --- Try It: Drawing Canvas --- */
+.tryit-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.tryit-results {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.canvas-container {
+    display: flex;
+    justify-content: center;
+    padding: 20px 0 12px;
+}
+
+#drawCanvas {
+    background: var(--bg);
+    border: 2px solid var(--border-hi);
+    border-radius: var(--r-sm);
+    cursor: crosshair;
+    touch-action: none;
+    transition: border-color .2s;
+    image-rendering: pixelated;
+}
+
+#drawCanvas:hover { border-color: var(--blue); }
+
+.canvas-controls {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    padding: 0 20px;
+}
+
+.canvas-controls .cta-btn { flex: 1; text-align: center; }
+
+.cta-secondary {
+    background: transparent !important;
+    border: 1px solid var(--border-hi) !important;
+    color: var(--text-2) !important;
+}
+.cta-secondary:hover {
+    border-color: var(--text-3) !important;
+    color: var(--text) !important;
+    background: var(--bg-hover) !important;
+}
+
+.canvas-hint {
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-3);
+    padding: 8px 20px 0;
+    line-height: 1.4;
+}
+
+/* Prediction Display */
+.prediction-display {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 8px 0;
+}
+
+.predicted-digit {
+    font-family: var(--mono);
+    font-size: 72px;
+    font-weight: 800;
+    color: var(--blue-fg);
+    min-width: 80px;
+    text-align: center;
+    line-height: 1;
+    transition: color .3s, transform .3s;
+}
+
+.predicted-digit.flash {
+    animation: digitFlash .4s ease;
+}
+
+@keyframes digitFlash {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.15); color: var(--green); }
+    100% { transform: scale(1); }
+}
+
+.prediction-meta { flex: 1; }
+
+.prediction-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    font-weight: 600;
+    margin-bottom: 4px;
+}
+
+.prediction-latency {
+    font-size: 13px;
+    color: var(--text-2);
+}
+
+/* Confidence Bars */
+.confidence-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.conf-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.conf-label {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-3);
+    min-width: 16px;
+    text-align: right;
+}
+
+.conf-label.highlight {
+    color: var(--blue-fg);
+}
+
+.conf-track {
+    flex: 1;
+    height: 8px;
+    background: var(--bg-hover);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.conf-fill {
+    height: 100%;
+    background: var(--border-hi);
+    border-radius: 4px;
+    transition: width .5s var(--ease), background .3s;
+    width: 0%;
+}
+
+.conf-fill.top {
+    background: var(--blue);
+}
+
+.conf-pct {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-3);
+    min-width: 42px;
+    text-align: right;
+}
+
+.conf-pct.highlight {
+    color: var(--blue-fg);
+    font-weight: 600;
+}
+
+/* Feature Maps */
+.feature-maps {
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.fmap-section {
+    margin-bottom: 16px;
+}
+
+.fmap-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-3);
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.fmap-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.fmap-grid canvas {
+    border-radius: 3px;
+    image-rendering: pixelated;
+    border: 1px solid var(--border);
+}
+
 /* --- Responsive --- */
 @media (max-width: 1024px) {
     .bento, .res-grid { grid-template-columns: repeat(2, 1fr); }

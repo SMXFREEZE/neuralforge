@@ -34,6 +34,7 @@
 
             <nav id="mainNav">
                 <button class="nav-link active" data-tab="overview">Overview</button>
+                <button class="nav-link" data-tab="tryit">Try It</button>
                 <button class="nav-link" data-tab="performance">Performance</button>
                 <button class="nav-link" data-tab="architecture">Architecture</button>
                 <button class="nav-link" data-tab="quantization">Quantization</button>
@@ -115,6 +116,62 @@
                     <span class="tag">XC7A35T</span>
                 </div>
                 <div class="res-grid" id="resGrid"></div>
+            </div>
+        </section>
+
+        <!-- === TRY IT === -->
+        <section class="view" id="view-tryit">
+            <div class="tryit-layout">
+                <!-- Left: Canvas -->
+                <div class="bento-card tryit-canvas-card">
+                    <div class="card-header">
+                        <h3>Draw a Digit</h3>
+                        <span class="tag">28x28 input</span>
+                    </div>
+                    <div class="canvas-container">
+                        <canvas id="drawCanvas" width="280" height="280"></canvas>
+                    </div>
+                    <div class="canvas-controls">
+                        <button class="cta-btn" id="classifyBtn">Classify</button>
+                        <button class="cta-btn cta-secondary" id="clearBtn">Clear</button>
+                    </div>
+                    <p class="canvas-hint">Draw any digit from 0 to 9 using your mouse or touchscreen</p>
+                </div>
+
+                <!-- Right: Results -->
+                <div class="tryit-results">
+                    <div class="bento-card tryit-prediction-card">
+                        <div class="card-header">
+                            <h3>Prediction</h3>
+                            <span class="tag" id="cycleTag">-- cycles</span>
+                        </div>
+                        <div class="prediction-display">
+                            <div class="predicted-digit" id="predictedDigit">?</div>
+                            <div class="prediction-meta">
+                                <p class="prediction-label">Predicted Class</p>
+                                <p class="prediction-latency" id="predLatency">Draw a digit to begin</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bento-card">
+                        <div class="card-header">
+                            <h3>Confidence</h3>
+                            <span class="tag">Softmax</span>
+                        </div>
+                        <div class="confidence-bars" id="confidenceBars"></div>
+                    </div>
+
+                    <div class="bento-card">
+                        <div class="card-header">
+                            <h3>Feature Maps</h3>
+                            <span class="tag">Per-layer</span>
+                        </div>
+                        <div class="feature-maps" id="featureMaps">
+                            <p class="empty-state">Run a classification to see layer activations</p>
+                        </div>
+                    </div>
+                </div>
             </div>
         </section>
 

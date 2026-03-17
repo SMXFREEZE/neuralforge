@@ -75,23 +75,34 @@ neuraforge/
 │   ├── weight_buffer.v           # BRAM-based INT8 weight storage
 │   ├── input_buffer.v            # Ping-pong double buffer
 │   ├── uart_interface.v          # 8N1 UART transceiver
+│   ├── axi_stream_wrapper.v      # AXI4-Stream IP core wrapper
 │   └── top.v                     # Top-level integration + FSM controller
 ├── sim/                          # Simulation testbenches
 │   ├── tb_mac_unit.v             # Exhaustive MAC correctness tests
 │   ├── tb_systolic_array.v       # 4×4 matmul verification
 │   ├── tb_conv_engine.v          # Convolution output verification
+│   ├── tb_axi_wrapper.v          # AXI4-Stream handshake verification
 │   └── tb_top.v                  # End-to-end UART → inference → UART test
 ├── sw/                           # Python ML pipeline
 │   ├── train.py                  # LeNet-5 training on MNIST (PyTorch)
 │   ├── quantize.py               # INT8 post-training quantization
 │   ├── export_weights.py         # Weight export to Verilog .mem files
+│   ├── generate_weights.py       # Train + export INT8 weights to JSON
+│   ├── fpga_simulator.py         # Cycle-accurate FPGA inference simulator
 │   ├── host.py                   # UART host interface + simulated mode
 │   ├── benchmark.py              # CPU vs FPGA performance comparison
+│   ├── dashboard_server.py       # Web dashboard backend server
+│   ├── ai_analyzer.py            # AI-powered architecture analysis
 │   └── requirements.txt          # Python dependencies
+├── dashboard/                    # Interactive web dashboard
+│   ├── index.html                # Dashboard UI
+│   ├── style.css                 # Premium dark theme
+│   └── app.js                    # Charts, canvas, classification logic
+├── weights/                      # Exported weight files
+│   └── lenet5_int8.json          # Pre-trained INT8 weights (bundled)
 ├── constraints/                  # FPGA pin/timing constraints
 │   ├── basys3.xdc                # Xilinx Basys 3 (XC7A35T)
 │   └── nexys_a7.xdc              # Digilent Nexys A7 (XC7A100T)
-├── weights/                      # Exported weight files (.mem, .coe)
 ├── docs/
 │   └── architecture.md           # Detailed system architecture
 └── README.md
@@ -152,7 +163,23 @@ python export_weights.py
 python benchmark.py --mode both --samples 1000
 ```
 
-### 4. Deploy to FPGA (when hardware is available)
+### 4. Live Demo Dashboard
+
+```bash
+# Start the interactive dashboard
+python sw/dashboard_server.py --port 8080
+
+# Open http://localhost:8080 in your browser
+# Click the "Try It" tab to draw digits and classify them live
+```
+
+The dashboard includes:
+- **Draw & Classify**: Draw any digit (0-9) on the interactive canvas and get real-time classification through the FPGA's INT8 inference pipeline (simulated in Python)
+- **Per-layer feature maps**: Visualize what each CNN layer "sees" at every stage
+- **Confidence scores**: See the softmax probability distribution across all 10 classes
+- **Cycle-accurate timing**: Shows exactly how many clock cycles the FPGA would take
+
+### 5. Deploy to FPGA (when hardware is available)
 
 ```bash
 # In Xilinx Vivado:
