@@ -82,6 +82,8 @@ class FPGASimulator:
         # --- Pool1: [6,24,24] -> [6,12,12] ---
         x = self._maxpool2d(x)
         self.cycle_count += x.size * 2
+        
+        x = self._quantize_activations(x)
         layer_outputs['pool1'] = self._serializable(x)
 
         # --- Conv2: [6,12,12] -> [16,8,8] ---
@@ -98,29 +100,33 @@ class FPGASimulator:
         # --- Pool2: [16,8,8] -> [16,4,4] ---
         x = self._maxpool2d(x)
         self.cycle_count += x.size * 2
+        
+        x = self._quantize_activations(x)
         layer_outputs['pool2'] = self._serializable(x)
 
         # --- Flatten: 256 ---
-        flat = np.clip(x.flatten(), -128, 127).astype(np.int8)
+        flat = x.flatten()
 
         # --- FC1: 256 -> 120 ---
         x32 = self._fc(flat, self.weights['fc1_weight'],
                         self.weights.get('fc1_bias', np.zeros(120, dtype=np.int32)))
         x32 = np.maximum(x32, 0)
         self.cycle_count += 256 * 120 // 16
-        layer_outputs['fc1'] = x32.tolist()
+        
+        x_fc1 = self._quantize_activations(x32)
+        layer_outputs['fc1'] = x_fc1.tolist()
 
         # --- FC2: 120 -> 84 ---
-        flat2 = np.clip(x32, -128, 127).astype(np.int8)
-        x32 = self._fc(flat2, self.weights['fc2_weight'],
+        x32 = self._fc(x_fc1, self.weights['fc2_weight'],
                         self.weights.get('fc2_bias', np.zeros(84, dtype=np.int32)))
         x32 = np.maximum(x32, 0)
         self.cycle_count += 120 * 84 // 16
-        layer_outputs['fc2'] = x32.tolist()
+        
+        x_fc2 = self._quantize_activations(x32)
+        layer_outputs['fc2'] = x_fc2.tolist()
 
         # --- FC3: 84 -> 10 ---
-        flat3 = np.clip(x32, -128, 127).astype(np.int8)
-        logits = self._fc(flat3, self.weights['fc3_weight'],
+        logits = self._fc(x_fc2, self.weights['fc3_weight'],
                           self.weights.get('fc3_bias', np.zeros(10, dtype=np.int32)))
         self.cycle_count += 84 * 10 // 16
         layer_outputs['fc3_logits'] = logits.tolist()
@@ -187,6 +193,14 @@ class FPGASimulator:
     # ===================================================================
     # Vectorized hardware-equivalent operations
     # ===================================================================
+
+    def _quantize_activations(self, x):
+        """Dynamically quantize INT32 accumulators back to INT8 (matching activation quantizer)."""
+        abs_max = np.abs(x).max()
+        if abs_max == 0:
+            return x.astype(np.int8)
+        scale = 127.0 / abs_max
+        return np.clip(np.round(x * scale), -128, 127).astype(np.int8)
 
     def _center_image(self, img):
         """Center digit via center-of-mass (matches MNIST preprocessing)."""
