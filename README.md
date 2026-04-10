@@ -1,8 +1,6 @@
-# NeuralForge — FPGA Neural Network Inference Accelerator
+# NeuralForge
 
-<p align="center">
-  <strong>A custom hardware accelerator implementing INT8 LeNet-5 CNN inference using a systolic array architecture on Xilinx 7-Series FPGAs</strong>
-</p>
+A custom FPGA accelerator that runs INT8 LeNet-5 inference using a systolic array. Built on Xilinx 7-Series, inspired by the Google TPU v1 and NVIDIA Tensor Core architectures.
 
 <p align="center">
   <img src="https://img.shields.io/badge/Verilog-HDL-blue?style=flat-square" alt="Verilog"/>
@@ -14,38 +12,40 @@
 
 ---
 
-## Architecture
+## What It Does
 
-Inspired by **Google TPU v1** (weight-stationary dataflow) and **NVIDIA Tensor Cores** (fused MAC units), NeuralForge implements a complete inference pipeline in synthesizable Verilog:
+NeuralForge takes a handwritten digit image, pushes it over UART to an FPGA, and gets back a classification result in under half a millisecond. The whole inference pipeline (convolution, pooling, fully connected layers) runs in synthesizable Verilog on the chip.
+
+The FPGA design uses a 4x4 weight-stationary systolic array, the same dataflow approach Google used in their first TPU. Weights sit inside each MAC unit. Activations stream in from the left. You get a 4x4 matrix multiply in 7 clock cycles.
 
 ```
 Host PC (Python)                    FPGA (Xilinx 7-Series)
-┌──────────────┐        UART       ┌──────────────────────────────┐
-│  train.py    │    ──────────▶    │  UART Interface (8N1)        │
-│  quantize.py │                   │         │                     │
-│  host.py     │    ◀──────────    │  Input Buffer (Ping-Pong)    │
-└──────────────┘     115200 bd     │         │                     │
-                                   │  Conv3x3 → ReLU → MaxPool2x2│
-                                   │         │                     │
-                                   │  ┌──────▼──────────────┐     │
-                                   │  │ 4×4 Systolic Array  │     │
-                                   │  │ (16 INT8 MACs/cycle)│     │
-                                   │  └──────┬──────────────┘     │
-                                   │         │                     │
-                                   │  Argmax → Result (0-9)       │
-                                   │  Status LEDs                  │
-                                   └──────────────────────────────┘
++--------------+        UART       +------------------------------+
+|  train.py    |    ---------->    |  UART Interface (8N1)        |
+|  quantize.py |                   |         |                     |
+|  host.py     |    <----------    |  Input Buffer (Ping-Pong)    |
++--------------+     115200 bd     |         |                     |
+                                   |  Conv3x3 > ReLU > MaxPool2x2 |
+                                   |         |                     |
+                                   |  +------v--------------+     |
+                                   |  | 4x4 Systolic Array  |     |
+                                   |  | (16 INT8 MACs/cycle)|     |
+                                   |  +------+--------------+     |
+                                   |         |                     |
+                                   |  Argmax > Result (0-9)       |
+                                   |  Status LEDs                  |
+                                   +------------------------------+
 ```
 
-### Key Design Decisions
+## Why These Design Choices
 
-| Decision | Rationale |
-|----------|-----------|
-| **Weight-stationary dataflow** | Minimizes weight memory bandwidth — weights loaded once, activations stream through |
-| **INT8 symmetric quantization** | 4× memory reduction vs FP32 with <1% accuracy loss on MNIST |
-| **4×4 systolic array** | Fits XC7A35T DSP budget (16 of 90 DSPs) while delivering 1.6 GMAC/s at 100 MHz |
-| **Pipelined conv engine** | 4-stage pipeline with adder tree maintains single-cycle throughput |
-| **Ping-pong input buffer** | Overlaps UART data reception with compute — zero bubble pipeline |
+| Decision | Why |
+|----------|-----|
+| **Weight-stationary dataflow** | Weights load once, activations stream through. Minimizes memory bandwidth. |
+| **INT8 symmetric quantization** | 4x smaller than FP32 with less than 1% accuracy loss on MNIST. |
+| **4x4 systolic array** | Fits the XC7A35T DSP budget (16 out of 90 DSPs) and still hits 1.6 GMAC/s at 100 MHz. |
+| **Pipelined conv engine** | 4-stage pipeline with adder tree. Keeps throughput at one output per cycle. |
+| **Ping-pong input buffer** | Overlaps UART data reception with compute so there are no pipeline bubbles between images. |
 
 ---
 
@@ -53,25 +53,25 @@ Host PC (Python)                    FPGA (Xilinx 7-Series)
 
 | Metric | CPU (PyTorch, i7) | FPGA (XC7A35T, 100 MHz) | Speedup |
 |--------|-------------------|-------------------------|---------|
-| Inference latency | ~2.1 ms | ~0.41 ms | **5.1×** |
-| Throughput | ~476 img/s | ~2,439 img/s | **5.1×** |
-| Power | ~65 W TDP | ~0.5 W | **130×** efficiency |
-| Accuracy | 99.2% (FP32) | 98.5% (INT8) | −0.7% |
+| Inference latency | ~2.1 ms | ~0.41 ms | **5.1x** |
+| Throughput | ~476 img/s | ~2,439 img/s | **5.1x** |
+| Power | ~65 W TDP | ~0.5 W | **130x** efficiency |
+| Accuracy | 99.2% (FP32) | 98.5% (INT8) | -0.7% |
 
-> **Energy efficiency**: FPGA achieves **~4,878 inferences/joule** vs CPU's **~7.3 inferences/joule** — a **668× improvement in energy efficiency**.
+The FPGA gets about **4,878 inferences per joule** compared to the CPU's **7.3 inferences per joule**. That's a 668x improvement in energy efficiency.
 
 ---
 
 ## Project Structure
 
 ```
-neuraforge/
+neuralforge/
 ├── rtl/                          # Synthesizable Verilog
 │   ├── mac_unit.v                # INT8 Multiply-Accumulate unit
-│   ├── systolic_array.v          # 4×4 weight-stationary systolic array
-│   ├── conv_engine.v             # 3×3 convolution with pipelined adder tree
+│   ├── systolic_array.v          # 4x4 weight-stationary systolic array
+│   ├── conv_engine.v             # 3x3 convolution with pipelined adder tree
 │   ├── activation.v              # ReLU / LeakyReLU activation
-│   ├── pooling.v                 # 2×2 max pooling
+│   ├── pooling.v                 # 2x2 max pooling
 │   ├── weight_buffer.v           # BRAM-based INT8 weight storage
 │   ├── input_buffer.v            # Ping-pong double buffer
 │   ├── uart_interface.v          # 8N1 UART transceiver
@@ -79,10 +79,10 @@ neuraforge/
 │   └── top.v                     # Top-level integration + FSM controller
 ├── sim/                          # Simulation testbenches
 │   ├── tb_mac_unit.v             # Exhaustive MAC correctness tests
-│   ├── tb_systolic_array.v       # 4×4 matmul verification
+│   ├── tb_systolic_array.v       # 4x4 matmul verification
 │   ├── tb_conv_engine.v          # Convolution output verification
 │   ├── tb_axi_wrapper.v          # AXI4-Stream handshake verification
-│   └── tb_top.v                  # End-to-end UART → inference → UART test
+│   └── tb_top.v                  # End-to-end UART to inference to UART test
 ├── sw/                           # Python ML pipeline
 │   ├── train.py                  # LeNet-5 training on MNIST (PyTorch)
 │   ├── quantize.py               # INT8 post-training quantization
@@ -112,13 +112,13 @@ neuraforge/
 
 ## Quick Start
 
-### Prerequisites
+### What You Need
 
-- **Simulation**: [Icarus Verilog](https://steveicarus.github.io/iverilog/) + [GTKWave](http://gtkwave.sourceforge.net/) (free)
-- **Synthesis**: Xilinx Vivado (free WebPACK edition) — only if deploying to FPGA
-- **Python**: 3.10+ with PyTorch
+- **For simulation**: [Icarus Verilog](https://steveicarus.github.io/iverilog/) + [GTKWave](http://gtkwave.sourceforge.net/) (both free)
+- **For synthesis**: Xilinx Vivado (free WebPACK edition), only needed if you're putting this on actual hardware
+- **For ML**: Python 3.10+ with PyTorch
 
-### 1. Run RTL Simulation (No FPGA needed)
+### 1. Run RTL Simulation (no FPGA needed)
 
 ```bash
 # Install Icarus Verilog (Windows)
@@ -140,13 +140,13 @@ vvp sim/conv_test
 gtkwave mac_unit.vcd
 ```
 
-### 2. Train & Quantize the Model
+### 2. Train and Quantize the Model
 
 ```bash
 cd sw
 pip install -r requirements.txt
 
-# Train LeNet-5 (~5 min, achieves >99% accuracy)
+# Train LeNet-5 (~5 min, gets >99% accuracy)
 python train.py
 
 # Quantize to INT8
@@ -173,23 +173,24 @@ python sw/dashboard_server.py --port 8080
 # Click the "Try It" tab to draw digits and classify them live
 ```
 
-The dashboard includes:
-- **Draw & Classify**: Draw any digit (0-9) on the interactive canvas and get real-time classification through the FPGA's INT8 inference pipeline (simulated in Python)
-- **MNIST Test Gallery**: Click any of the 100 bundled MNIST test samples to run them through the pipeline instantly
-- **Batch Accuracy Testing**: Run a full 100-sample validation batch with a single click, generating a visual confusion matrix
-- **Per-layer feature maps**: Visualize what each CNN layer "sees" at every stage
-- **Saliency Heatmaps**: See exactly which pixels influenced the model's prediction the most (occlusion sensitivity)
-- **Confidence scores**: See the softmax probability distribution across all 10 classes
-- **Cycle-accurate timing**: Shows exactly how many clock cycles the FPGA would take (Simulator runs at ~50x speedup via NumPy vectorization)
+The dashboard lets you:
+- **Draw and classify**: Sketch any digit (0-9) on the canvas and watch it run through the INT8 inference pipeline in real time (simulated in Python)
+- **MNIST gallery**: Click any of 100 bundled test samples to classify them instantly
+- **Batch accuracy**: Run a full 100-sample validation with one click and see a confusion matrix
+- **Feature maps**: See what each CNN layer "sees" at every stage
+- **Saliency heatmaps**: See which pixels mattered most for the prediction (occlusion sensitivity)
+- **Confidence scores**: Softmax probabilities across all 10 classes
+- **Cycle-accurate timing**: Exactly how many clock cycles the FPGA uses (simulator runs ~50x faster via NumPy vectorization)
+- **hls4ml demo**: Interactive visualization of the Python-to-FPGA model conversion pipeline, showing how tools like hls4ml translate Keras models into synthesizable HLS firmware
 
-### 5. Deploy to FPGA (when hardware is available)
+### 5. Deploy to FPGA (when you have the hardware)
 
 ```bash
 # In Xilinx Vivado:
-# 1. Create project → target Basys 3 (XC7A35T-1CPG236C)
+# 1. Create project, target Basys 3 (XC7A35T-1CPG236C)
 # 2. Add sources: rtl/*.v
 # 3. Add constraints: constraints/basys3.xdc
-# 4. Run synthesis → implementation → generate bitstream
+# 4. Run synthesis, implementation, generate bitstream
 # 5. Program device
 
 # Send test images
@@ -198,34 +199,34 @@ python sw/host.py --port COM3 --samples 100
 
 ---
 
-## Technical Deep-Dive
+## Technical Details
 
 ### Systolic Array Dataflow
 
-The 4×4 systolic array uses **weight-stationary** dataflow, identical to Google's TPU v1:
+The 4x4 systolic array uses **weight-stationary** dataflow. Same approach as the Google TPU v1:
 
 ```
 Weights pre-loaded into each MAC unit:
 
     w00  w01  w02  w03       Activations stream in from left:
-  ┌────┬────┬────┬────┐
-→ │MAC │MAC │MAC │MAC │ ← a_in[0] (row 0)
-  ├────┼────┼────┼────┤
-→ │MAC │MAC │MAC │MAC │ ← a_in[1] (row 1)
-  ├────┼────┼────┼────┤
-→ │MAC │MAC │MAC │MAC │ ← a_in[2] (row 2)
-  ├────┼────┼────┼────┤
-→ │MAC │MAC │MAC │MAC │ ← a_in[3] (row 3)
-  └────┴────┴────┴────┘
+  +----+----+----+----+
+> |MAC |MAC |MAC |MAC | < a_in[0] (row 0)
+  +----+----+----+----+
+> |MAC |MAC |MAC |MAC | < a_in[1] (row 1)
+  +----+----+----+----+
+> |MAC |MAC |MAC |MAC | < a_in[2] (row 2)
+  +----+----+----+----+
+> |MAC |MAC |MAC |MAC | < a_in[3] (row 3)
+  +----+----+----+----+
 
-Each MAC: acc += a × w (every cycle)
-Result: 4×4 matrix multiply in 4+3 = 7 cycles
+Each MAC: acc += a * w (every cycle)
+Result: 4x4 matrix multiply in 4+3 = 7 cycles
 ```
 
 ### Quantization Pipeline
 
 ```
-FP32 weights ──→ Symmetric INT8 Quantization ──→ .mem hex files ──→ BRAM init
+FP32 weights --> Symmetric INT8 Quantization --> .mem hex files --> BRAM init
                  scale = max|w| / 127
                  q = round(w / scale)
                  range: [-128, +127]
@@ -234,10 +235,10 @@ FP32 weights ──→ Symmetric INT8 Quantization ──→ .mem hex files ─�
 ### Convolution Pipeline Stages
 
 ```
-Stage 1: 9× parallel INT8 multiplications (ifmap × kernel)
+Stage 1: 9 parallel INT8 multiplications (input feature map x kernel)
 Stage 2: Pairwise addition (adder tree level 1: 4 sums + 1 passthrough)
 Stage 3: Pairwise addition (adder tree level 2: 2 sums)
-Stage 4: Final sum + bias → output
+Stage 4: Final sum + bias, output
 ```
 
 ---
@@ -253,7 +254,7 @@ Stage 4: Final sum + bias → output
 
 ---
 
-## Tools & Technologies
+## Tools and Technologies
 
 - **HDL**: Verilog (IEEE 1364-2005)
 - **Simulation**: Icarus Verilog, GTKWave
@@ -276,11 +277,11 @@ Stage 4: Final sum + bias → output
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
+MIT License, see [LICENSE](LICENSE) for details.
 
 ---
 
 <p align="center">
-  Built as a hardware ML accelerator portfolio project<br/>
-  Targeting NVIDIA, AMD, and Tesla co-op positions
+  Built as a hardware ML accelerator portfolio project.<br/>
+  Targeting NVIDIA, AMD, and Tesla co-op positions.
 </p>
