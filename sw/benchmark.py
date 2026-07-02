@@ -100,22 +100,12 @@ def benchmark_fpga_simulated(num_samples=1000):
     Simulated FPGA benchmark based on theoretical performance.
     Uses realistic estimates for a Xilinx XC7A35T at 100 MHz.
     """
-    # Theoretical calculations:
-    # - LeNet-5 total MACs: ~416,000
-    # - 4x4 systolic array: 16 MACs/cycle
-    # - At 100 MHz: 16 * 100M = 1.6 GMAC/s
-    # - Inference time: 416K / 1.6G = ~0.26 ms
-    # - Add memory latency overhead: ~0.15 ms
-    # - Total estimated: ~0.41 ms
-
-    base_latency_ms = 0.41
-    latencies = []
-
-    for _ in range(num_samples):
-        # Add realistic jitter (±10%)
-        jitter = np.random.normal(0, base_latency_ms * 0.05)
-        latency = max(0.1, base_latency_ms + jitter)
-        latencies.append(latency)
+    # The cycle model in fpga_simulator.py sums fixed per-layer costs, so the
+    # modeled latency is deterministic: 47,732 cycles @ 100 MHz = 0.477 ms.
+    # (Raw compute bound would be 416K MACs / 1.6 GMAC/s = ~0.26 ms; the model
+    # adds per-layer overheads on top.)
+    base_latency_ms = 47_732 / 100_000_000 * 1000  # = 0.477 ms, no fake jitter
+    latencies = [base_latency_ms] * num_samples
 
     # Simulated accuracy (INT8 quantization typically loses <1%)
     accuracy = 98.5  # Estimated

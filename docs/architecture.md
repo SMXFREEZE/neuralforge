@@ -7,6 +7,24 @@ designed to classify 28×28 MNIST handwritten digits in hardware. The architectu
 is directly inspired by **Google's TPU v1** (weight-stationary systolic array)
 and **NVIDIA Tensor Cores** (fused multiply-accumulate).
 
+## Implementation Status and Fidelity
+
+Be aware of what is RTL and what is model:
+
+- **RTL (`rtl/`)** contains the synthesizable building blocks: MAC unit, 4×4
+  systolic array, a **3×3 convolution engine**, activation, pooling, buffers,
+  UART, and AXI-Stream wrapper. The conv engine is a *demonstration block*: it
+  showcases the pipelined adder-tree structure at 3×3 size. LeNet-5 itself uses
+  **5×5 kernels**, so the RTL as committed does not run the full network
+  end-to-end.
+- **Simulator (`sw/fpga_simulator.py`)** models the complete 5×5 INT8 LeNet-5
+  datapath (Conv→ReLU→Pool ×2, then FC1–FC3) with the same arithmetic rules as
+  the hardware blocks (INT8 operands, INT32 accumulators) plus a per-layer
+  cycle model. All latency/throughput numbers in this repo come from this
+  model, **not from measurements on a programmed device**.
+- **Resource and power figures** are estimates based on the XC7A35T datasheet
+  and block sizing, not Vivado implementation reports.
+
 ## Architecture Block Diagram
 
 ```
@@ -94,14 +112,18 @@ and **NVIDIA Tensor Cores** (fused multiply-accumulate).
 
 ## Performance Model
 
+All values below are **modeled** (cycle model in `sw/fpga_simulator.py` at a
+target 100 MHz clock), not measured on hardware:
+
 | Metric | Value |
 |--------|-------|
-| Clock frequency | 100 MHz |
+| Clock frequency (target) | 100 MHz |
 | Systolic array MACs/cycle | 16 |
 | Peak throughput | 1.6 GMAC/s |
 | LeNet-5 total MACs | ~416,000 |
-| Estimated inference time | ~0.41 ms |
-| Estimated throughput | ~2,400 images/sec |
+| Modeled cycles per inference | 47,732 (deterministic) |
+| Modeled inference time | ~0.48 ms |
+| Modeled throughput | ~2,095 images/sec |
 
 ## Module Hierarchy
 

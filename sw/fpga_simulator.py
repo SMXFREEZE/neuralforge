@@ -3,11 +3,13 @@ NeuralForge — Cycle-Accurate FPGA Simulator (Vectorized)
 Replicates the FPGA INT8 inference pipeline in pure Python/NumPy.
 Executes: Conv1 -> ReLU -> Pool1 -> Conv2 -> ReLU -> Pool2 -> FC1 -> FC2 -> FC3 -> Argmax
 
-This matches the hardware datapath exactly:
-  - All arithmetic is INT8 inputs / INT32 accumulators (same as the MAC units)
-  - Convolution uses the same 5x5 kernel sweeps
+This models the intended hardware datapath:
+  - All arithmetic is INT8 inputs / INT32 accumulators (same rules as mac_unit.v)
+  - Convolution models the full LeNet-5 5x5 kernel sweeps (note: the committed
+    rtl/conv_engine.v is a 3x3 demonstration block — see docs/architecture.md)
   - Pooling uses 2x2 max (same as pooling.v)
   - FC layers replicate the systolic array's weight-stationary dot products
+The cycle count is a per-layer analytical model, not an RTL-derived measurement.
 
 Performance: Vectorized with numpy broadcasting — ~50-100x faster than naive loops.
 """
