@@ -2,7 +2,7 @@
 import { useRef, useState, useCallback } from 'react'
 
 declare global {
-  interface Window { tf: any }
+  interface Window { ort: any }
 }
 
 interface PredResult {
@@ -12,27 +12,37 @@ interface PredResult {
   latency_us: number
 }
 
-const MNIST_MODEL_URL =
-  'https://storage.googleapis.com/tfjs-examples/mnist/dist/model/model.json'
+const ONNX_MODEL_URL =
+  'https://media.githubusercontent.com/media/onnx/models/main/validated/vision/classification/mnist/model/mnist-12.onnx'
 
-let _model: any = null
-let _modelPromise: Promise<any> | null = null
+let _session: any = null
+let _sessionPromise: Promise<any> | null = null
 
-async function getModel() {
-  if (_model) return _model
-  if (_modelPromise) return _modelPromise
-  _modelPromise = (async () => {
+async function getSession() {
+  if (_session) return _session
+  if (_sessionPromise) return _sessionPromise
+  _sessionPromise = (async () => {
     let attempts = 0
-    while (!window.tf && attempts < 80) {
+    while (!window.ort && attempts < 80) {
       await new Promise(r => setTimeout(r, 100))
       attempts++
     }
-    if (!window.tf) throw new Error('TensorFlow.js failed to load')
-    const model = await window.tf.loadLayersModel(MNIST_MODEL_URL)
-    _model = model
-    return model
+    if (!window.ort) throw new Error('ONNX Runtime failed to load')
+    // Point WASM files to the same CDN path
+    window.ort.env.wasm.wasmPaths =
+      'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/'
+    const session = await window.ort.InferenceSession.create(ONNX_MODEL_URL)
+    _session = session
+    return session
   })()
-  return _modelPromise
+  return _sessionPromise
+}
+
+function softmax(arr: number[]): number[] {
+  const max = Math.max(...arr)
+  const exp = arr.map(v => Math.exp(v - max))
+  const sum = exp.reduce((a, b) => a + b, 0)
+  return exp.map(v => Math.round((v / sum) * 1000) / 1000)
 }
 
 function simulateFpgaMetrics() {
@@ -51,9 +61,10 @@ export default function TryIt() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const initCanvas = useCallback((canvas: HTMLCanvasElement | null) => {
-    if (!canvas) return
-    const ctx = canvas.getContext('2d')
+  const initCanvas = useCallback((node: HTMLCanvasElement | null) => {
+    if (!node) return
+    ;(canvasRef as any).current = node
+    const ctx = node.getContext('2d')
     if (!ctx) return
     ctx.fillStyle = '#000000'
     ctx.fillRect(0, 0, 280, 280)
@@ -62,11 +73,6 @@ export default function TryIt() {
     ctx.lineCap = 'round'
     ctx.lineJoin = 'round'
   }, [])
-
-  const canvasCallbackRef = useCallback((canvas: HTMLCanvasElement | null) => {
-    ;(canvasRef as any).current = canvas
-    initCanvas(canvas)
-  }, [initCanvas])
 
   const getPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect()
@@ -113,7 +119,6 @@ export default function TryIt() {
     if (!ctx) return
     ctx.fillStyle = '#000000'
     ctx.fillRect(0, 0, 280, 280)
-    ctx.strokeStyle = '#ffffff'
     setHasContent(false)
     setResult(null)
     setError(null)
@@ -125,22 +130,29 @@ export default function TryIt() {
     setLoading(true)
     setError(null)
     try {
-      const model = await getModel()
-      const tf = window.tf
+      const session = await getSession()
+      const ort = window.ort
+
+      // Crop digit to bounding box, center on 280x280, scale to 28x28
       const cropped = cropToCanvas(canvas)
+      const small = document.createElement('canvas')
+      small.width = 28
+      small.height = 28
+      small.getContext('2d')!.drawImage(cropped, 0, 0, 28, 28)
+      const px = small.getContext('2d')!.getImageData(0, 0, 28, 28).data
 
-      const output = tf.tidy(() => {
-        const img = tf.browser.fromPixels(cropped, 1) // [280, 280, 1]
-        const resized = tf.image.resizeBilinear(img, [28, 28]) // [28, 28, 1]
-        const normalized = resized.div(255.0)
-        const batched = normalized.expandDims(0) // [1, 28, 28, 1]
-        return model.predict(batched) // [1, 10]
-      })
+      // Build NCHW float32 tensor [1, 1, 28, 28], values 0–1
+      const float32 = new Float32Array(28 * 28)
+      for (let i = 0; i < 28 * 28; i++) {
+        float32[i] = px[i * 4] / 255.0
+      }
 
-      const probs: Float32Array = await output.data()
-      output.dispose()
-
-      const confidence = Array.from(probs) as number[]
+      const inputName = session.inputNames[0]
+      const outputName = session.outputNames[0]
+      const tensor = new ort.Tensor('float32', float32, [1, 1, 28, 28])
+      const results = await session.run({ [inputName]: tensor })
+      const logits = Array.from(results[outputName].data as Float32Array) as number[]
+      const confidence = softmax(logits)
       const digit = confidence.indexOf(Math.max(...confidence))
 
       setResult({ digit, confidence, ...simulateFpgaMetrics() })
@@ -163,7 +175,7 @@ export default function TryIt() {
           <div className="card-title">Draw a Digit</div>
           <div className="draw-canvas-wrap" style={{ marginBottom: 12 }}>
             <canvas
-              ref={canvasCallbackRef}
+              ref={initCanvas}
               className="draw-canvas"
               width={280}
               height={280}
@@ -243,7 +255,7 @@ export default function TryIt() {
             <span className="hiw-num">2</span>
             <div>
               <div className="hiw-title">MNIST Neural Network</div>
-              <div className="hiw-desc">The drawing is cropped, scaled to 28x28, and classified by a real CNN trained on MNIST — running directly in your browser via TensorFlow.js.</div>
+              <div className="hiw-desc">The drawing is cropped, scaled to 28x28, and classified by a real CNN from the ONNX Model Zoo — running directly in your browser via ONNX Runtime Web.</div>
             </div>
           </div>
           <div className="hiw-row">
@@ -268,8 +280,7 @@ function cropToCanvas(canvas: HTMLCanvasElement): HTMLCanvasElement {
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 4
-      const brightness = (px[i] + px[i + 1] + px[i + 2]) / 3
-      if (brightness > 30) {
+      if ((px[i] + px[i + 1] + px[i + 2]) / 3 > 30) {
         if (x < x0) x0 = x
         if (x > x1) x1 = x
         if (y < y0) y0 = y

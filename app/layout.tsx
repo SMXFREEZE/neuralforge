@@ -30,9 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${inter.variable} ${jetbrainsMono.variable}`}>
         {children}
-        {/* TF.js for client-side MNIST classification */}
+        {/* ONNX Runtime Web for client-side MNIST classification */}
         <Script
-          src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"
+          src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"
           strategy="afterInteractive"
         />
         {/* Load Three.js first, then Vanta effects in sequence */}

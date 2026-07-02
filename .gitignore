@@ -35,7 +35,19 @@ build/
 *.egg-info/
 venv/
 env/
+.venv/
 .env
+
+# Datasets (torchvision re-downloads MNIST on demand)
+data/
+
+# Next.js / Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.env.local
+.env*.local
 
 # MacOS
 .DS_Store
@@ -49,3 +61,4 @@ env/
 # Project specific ignores
 weights/generated_*.mem
 weights/generated_*.coe
+.vercel
