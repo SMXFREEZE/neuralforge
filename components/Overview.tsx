@@ -2,9 +2,9 @@
 import { useEffect, useRef } from 'react'
 
 const METRICS = [
-  { label: 'Inference Latency', value: '0.41', suffix: 'ms', cls: 'green', delta: '5.1x vs CPU', deltaColor: 'green' },
-  { label: 'Throughput', value: '2,439', suffix: 'img/s', cls: 'accent', delta: '5.1x vs CPU', deltaColor: 'green' },
-  { label: 'Energy Efficiency', value: '668', suffix: 'x gain', cls: 'purple', delta: 'vs i7 baseline', deltaColor: 'amber' },
+  { label: 'Inference Latency', value: '0.48', suffix: 'ms', cls: 'green', delta: '4.4x vs CPU (est.)', deltaColor: 'green' },
+  { label: 'Throughput', value: '2,095', suffix: 'img/s', cls: 'accent', delta: '4.4x vs CPU (est.)', deltaColor: 'green' },
+  { label: 'Energy Efficiency', value: '574', suffix: 'x gain', cls: 'purple', delta: 'vs i7 baseline (est.)', deltaColor: 'amber' },
   { label: 'INT8 Accuracy', value: '98.5', suffix: '%', cls: 'amber', delta: '-0.7% vs FP32', deltaColor: 'amber' },
 ]
 
@@ -18,9 +18,11 @@ const PIPELINE = [
   ['Argmax + Output', 'Class 0-9'],
 ]
 
+// The cycle model is deterministic (47,732 cycles per inference), so the
+// modeled latency/throughput are flat lines rather than a measured trend.
 const SPARKLINE_DATA = {
-  latency: [0.48, 0.43, 0.45, 0.41, 0.42, 0.39, 0.41, 0.40, 0.41, 0.43, 0.41],
-  throughput: [2100, 2200, 2150, 2300, 2250, 2400, 2380, 2439, 2420, 2439, 2439],
+  latency: Array(11).fill(0.477),
+  throughput: Array(11).fill(2095),
 }
 
 export default function Overview() {
@@ -60,12 +62,12 @@ export default function Overview() {
       <div className="grid-2">
         <div className="card">
           <div className="section-header">
-            <span className="section-title">Inference Latency Trend</span>
-            <span className="section-meta">100 MHz</span>
+            <span className="section-title">Modeled Latency</span>
+            <span className="section-meta">deterministic cycle model, 100 MHz</span>
           </div>
           <div style={{ marginBottom: 4 }}>
-            <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--green)' }}>0.41 ms</span>
-            <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 6 }}>mean</span>
+            <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--green)' }}>0.48 ms</span>
+            <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 6 }}>per inference</span>
           </div>
           <div className="sparkline-wrap">
             <canvas ref={sparkRef1} style={{ width: '100%', height: 32 }} />
@@ -74,11 +76,11 @@ export default function Overview() {
 
         <div className="card">
           <div className="section-header">
-            <span className="section-title">Throughput</span>
+            <span className="section-title">Modeled Throughput</span>
             <span className="section-meta">img/s</span>
           </div>
           <div style={{ marginBottom: 4 }}>
-            <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--accent)' }}>2,439</span>
+            <span style={{ fontSize: 22, fontWeight: 700, letterSpacing: '-0.04em', color: 'var(--accent)' }}>2,095</span>
             <span style={{ fontSize: 12, color: 'var(--text-3)', marginLeft: 6 }}>img/s</span>
           </div>
           <div className="sparkline-wrap">

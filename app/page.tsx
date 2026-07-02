@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import dynamic from 'next/dynamic'
 import Sidebar from '@/components/Sidebar'
 import Overview from '@/components/Overview'
@@ -15,10 +15,22 @@ const VantaBg = dynamic(() => import('@/components/VantaBg'), { ssr: false })
 export type Tab = 'overview' | 'tryit' | 'performance' | 'architecture' | 'quantization' | 'hls4ml' | 'insights'
 export type Theme = 'dark' | 'light'
 
+const TABS: Tab[] = ['overview', 'tryit', 'performance', 'architecture', 'quantization', 'hls4ml', 'insights']
+
 export default function Home() {
   const [tab, setTab] = useState<Tab>('overview')
   const [theme, setTheme] = useState<Theme>('dark')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+
+  // Deep-link support: open a tab directly via URL hash, e.g. /#tryit.
+  // Deferred so hydration completes before the tab switch (also satisfies
+  // react-hooks/set-state-in-effect).
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '') as Tab
+    if (!TABS.includes(hash)) return
+    const id = window.setTimeout(() => setTab(hash), 0)
+    return () => window.clearTimeout(id)
+  }, [])
 
   const toggleTheme = () => setTheme(t => t === 'dark' ? 'light' : 'dark')
 

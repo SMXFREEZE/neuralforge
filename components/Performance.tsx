@@ -3,17 +3,17 @@ import { useEffect, useRef } from 'react'
 
 const LATENCY_DATA = {
   labels: ['CPU i7-8700', 'CPU PyTorch', 'GPU RTX 3080', 'FPGA NeuralForge'],
-  datasets: [{ label: 'Latency (ms)', data: [2.13, 1.87, 0.38, 0.41], color: '#6c8cff' }],
+  datasets: [{ label: 'Latency (ms)', data: [2.13, 1.87, 0.38, 0.48], color: '#6c8cff' }],
 }
 
 const THROUGHPUT_DATA = {
   labels: ['CPU i7', 'CPU PyTorch', 'GPU RTX3080', 'FPGA'],
-  datasets: [{ label: 'img/s', data: [470, 535, 2631, 2439], color: '#34d399' }],
+  datasets: [{ label: 'img/s', data: [470, 535, 2631, 2095], color: '#34d399' }],
 }
 
 const ENERGY_DATA = {
   labels: ['FPGA 0.5W', 'CPU 65W'],
-  values: [4878, 7.3],
+  values: [4190, 7.3],
   colors: ['#34d399', '#f87171'],
 }
 
@@ -44,10 +44,10 @@ export default function Performance({ active }: { active: boolean }) {
 
       <div className="grid-4" style={{ marginBottom: 24 }}>
         {[
-          { label: 'FPGA Latency', value: '0.41 ms', note: '100 MHz, INT8', color: 'var(--green)' },
+          { label: 'FPGA Latency', value: '0.48 ms', note: '100 MHz, INT8, modeled', color: 'var(--green)' },
           { label: 'CPU Latency', value: '2.13 ms', note: 'i7-8700, FP32', color: 'var(--red)' },
-          { label: 'Speedup', value: '5.1x', note: 'vs CPU baseline', color: 'var(--accent)' },
-          { label: 'Energy Saving', value: '668x', note: '0.5 W vs 65 W', color: 'var(--purple)' },
+          { label: 'Speedup', value: '4.4x', note: 'vs CPU baseline, est.', color: 'var(--accent)' },
+          { label: 'Energy Saving', value: '574x', note: '0.5 W vs 65 W, est.', color: 'var(--purple)' },
         ].map(m => (
           <div className="metric-card" key={m.label}>
             <span className="metric-label">{m.label}</span>
@@ -73,8 +73,8 @@ export default function Performance({ active }: { active: boolean }) {
           <div className="card-title">Energy Efficiency (inferences / joule)</div>
           <canvas ref={energyRef} className="chart-canvas" />
           <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 10 }}>
-            FPGA @ 0.5 W: 4,878 inf/J, CPU @ 65 W: 7.3 inf/J.{' '}
-            <strong style={{ color: 'var(--green)' }}>668x improvement.</strong>
+            FPGA @ 0.5 W: 4,190 inf/J (modeled), CPU @ 65 W: 7.3 inf/J.{' '}
+            <strong style={{ color: 'var(--green)' }}>574x improvement (estimated).</strong>
           </p>
         </div>
         <div className="card">
@@ -92,7 +92,7 @@ export default function Performance({ active }: { active: boolean }) {
                 ['CPU i7-8700', '2.13 ms', '470 img/s', '65 W', '7.3'],
                 ['CPU PyTorch', '1.87 ms', '535 img/s', '65 W', '8.2'],
                 ['GPU RTX 3080', '0.38 ms', '2,631 img/s', '320 W', '8.2'],
-                ['FPGA (ours)', '0.41 ms', '2,439 img/s', '0.5 W', '4,878'],
+                ['FPGA (ours)', '0.48 ms', '2,095 img/s', '0.5 W', '4,190'],
               ].map((row, i) => (
                 <tr key={i} style={{ background: i === 3 ? 'var(--green-dim)' : undefined }}>
                   {row.map((cell, j) => (
