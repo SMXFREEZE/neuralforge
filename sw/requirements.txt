@@ -1,8 +1,12 @@
-torch>=2.0.0
-torchvision>=0.15.0
+# Core — enough to run the FPGA simulator, benchmark, weight export and UART host
 numpy>=1.24.0
-matplotlib>=3.7.0
 pyserial>=3.5
-openai>=1.0.0
-boto3>=1.28.0
+
+# Optional: center-of-mass digit centering in fpga_simulator.py
+# (the simulator falls back gracefully without it)
 scipy>=1.10.0
+
+# Training / quantization (train.py, quantize.py, generate_weights.py) need
+# PyTorch, installed separately because of its size:
+#   pip install "torch>=2.0.0" "torchvision>=0.15.0"
+# or use: pip install -r requirements-dev.txt

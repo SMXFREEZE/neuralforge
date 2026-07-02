@@ -1,0 +1,13 @@
+# Development / optional extras (not needed for the core simulator flow)
+-r requirements.txt
+
+# Training and quantization
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Plots in benchmark tooling
+matplotlib>=3.7.0
+
+# AI analysis backends used by sw/ai_analyzer.py (legacy dashboard)
+openai>=1.0.0
+boto3>=1.28.0
