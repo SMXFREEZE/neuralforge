@@ -12,7 +12,10 @@ interface PredResult {
   latency_us: number
 }
 
-const ONNX_MODEL_URL =
+// Vendored copy of the ONNX Model Zoo MNIST model (public/models/mnist-12.onnx,
+// ~26 KB); the upstream URL is kept as a fallback.
+const ONNX_MODEL_URL = '/models/mnist-12.onnx'
+const ONNX_MODEL_FALLBACK_URL =
   'https://media.githubusercontent.com/media/onnx/models/main/validated/vision/classification/mnist/model/mnist-12.onnx'
 
 let _session: any = null
@@ -31,11 +34,21 @@ async function getSession() {
     // Point WASM files to the same CDN path
     window.ort.env.wasm.wasmPaths =
       'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/'
-    const session = await window.ort.InferenceSession.create(ONNX_MODEL_URL)
+    let session
+    try {
+      session = await window.ort.InferenceSession.create(ONNX_MODEL_URL)
+    } catch {
+      session = await window.ort.InferenceSession.create(ONNX_MODEL_FALLBACK_URL)
+    }
     _session = session
     return session
   })()
-  return _sessionPromise
+  try {
+    return await _sessionPromise
+  } catch (err) {
+    _sessionPromise = null // allow retry on next click
+    throw err
+  }
 }
 
 function softmax(arr: number[]): number[] {
