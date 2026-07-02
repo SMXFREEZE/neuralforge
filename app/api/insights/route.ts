@@ -11,9 +11,10 @@ Hardware context:
 - Quantization: INT8 symmetric, per-tensor scale, 98.5% accuracy (−0.7% vs FP32)
 - Resources: 16/90 DSP48E1, 3370/20800 LUTs, 4/50 BRAM
 - Interface: UART 115200 baud, AXI4-Stream alternative
-- Latency: 0.41 ms FPGA vs 2.13 ms CPU (5.1× speedup)
-- Energy: 0.5W FPGA vs 65W CPU (668× efficiency)
-- Throughput: 2,439 img/s
+- Latency (modeled, cycle-accurate simulator): 0.48 ms FPGA (47,732 cycles @ 100 MHz) vs ~2.1 ms CPU (~4.4× estimated speedup)
+- Energy (estimated from datasheet power): ~0.5W FPGA vs ~65W CPU
+- Throughput (modeled): ~2,095 img/s
+All hardware figures are simulator/datasheet estimates, not silicon measurements.
 
 Be technically precise. Use tables and markdown for clarity.`
 
@@ -52,8 +53,69 @@ function getPrompt(mode: string, question: string): string {
   }
 }
 
+// --- Abuse guards (dependency-free) -------------------------------------
+// Simple fixed-window in-memory rate limit per IP. Good enough for a demo:
+// state resets on cold start and is per-instance, but it stops casual abuse
+// of the OpenAI proxy.
+const RATE_LIMIT = 5 // requests
+const RATE_WINDOW_MS = 60_000 // per minute
+const MAX_QUESTION_LENGTH = 500
+const rateBuckets = new Map<string, { count: number; windowStart: number }>()
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now()
+  const bucket = rateBuckets.get(ip)
+  if (!bucket || now - bucket.windowStart >= RATE_WINDOW_MS) {
+    rateBuckets.set(ip, { count: 1, windowStart: now })
+    // Opportunistic cleanup so the map cannot grow unbounded
+    if (rateBuckets.size > 1000) {
+      for (const [key, b] of rateBuckets) {
+        if (now - b.windowStart >= RATE_WINDOW_MS) rateBuckets.delete(key)
+      }
+    }
+    return false
+  }
+  bucket.count++
+  return bucket.count > RATE_LIMIT
+}
+
 export async function POST(req: NextRequest) {
-  const { mode = 'performance', question = '' } = await req.json()
+  // Env kill-switch: set INSIGHTS_ENABLED=false to disable the endpoint
+  if (process.env.INSIGHTS_ENABLED === 'false') {
+    return new Response(JSON.stringify({ error: 'Insights endpoint is disabled' }), {
+      status: 503,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  if (isRateLimited(ip)) {
+    return new Response(JSON.stringify({ error: 'Rate limit exceeded: 5 requests per minute' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
+    })
+  }
+
+  let body: { mode?: string; question?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return new Response(JSON.stringify({ error: 'Invalid JSON body' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+  const mode = typeof body.mode === 'string' ? body.mode : 'performance'
+  const question = typeof body.question === 'string' ? body.question : ''
+  if (question.length > MAX_QUESTION_LENGTH) {
+    return new Response(
+      JSON.stringify({ error: `Question too long (max ${MAX_QUESTION_LENGTH} characters)` }),
+      { status: 413, headers: { 'Content-Type': 'application/json' } }
+    )
+  }
 
   if (!process.env.OPENAI_API_KEY) {
     // Return offline analysis as a stream
