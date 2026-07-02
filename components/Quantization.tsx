@@ -254,7 +254,8 @@ function drawPerClassChart(canvas: HTMLCanvasElement) {
   PER_CLASS_FP32.forEach((v, i) => {
     const x = pad.left + i * stepX
     const y = toY(v)
-    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+    if (i === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
   })
   ctx.strokeStyle = 'rgba(108,140,255,0.3)'
   ctx.lineWidth = 1.5

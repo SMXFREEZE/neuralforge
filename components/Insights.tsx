@@ -165,7 +165,7 @@ export default function Insights() {
             ) : output ? (
               <MarkdownOutput text={output} />
             ) : (
-              <p className="empty-state">Select a mode and click "Run Analysis" to get AI-powered insights</p>
+              <p className="empty-state">Select a mode and click &quot;Run Analysis&quot; to get AI-powered insights</p>
             )}
           </div>
         </div>

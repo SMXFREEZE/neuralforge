@@ -1,8 +1,20 @@
 'use client'
 import { useRef, useState, useCallback } from 'react'
 
+// Minimal structural types for the ONNX Runtime Web global loaded via <Script>
+interface OrtTensorLike { data: Float32Array }
+interface OrtSession {
+  inputNames: string[]
+  outputNames: string[]
+  run(feeds: Record<string, unknown>): Promise<Record<string, OrtTensorLike>>
+}
+interface OrtRuntime {
+  env: { wasm: { wasmPaths: string } }
+  Tensor: new (type: string, data: Float32Array, dims: number[]) => unknown
+  InferenceSession: { create(pathOrUrl: string): Promise<OrtSession> }
+}
 declare global {
-  interface Window { ort: any }
+  interface Window { ort?: OrtRuntime }
 }
 
 interface PredResult {
@@ -18,8 +30,8 @@ const ONNX_MODEL_URL = '/models/mnist-12.onnx'
 const ONNX_MODEL_FALLBACK_URL =
   'https://media.githubusercontent.com/media/onnx/models/main/validated/vision/classification/mnist/model/mnist-12.onnx'
 
-let _session: any = null
-let _sessionPromise: Promise<any> | null = null
+let _session: OrtSession | null = null
+let _sessionPromise: Promise<OrtSession> | null = null
 
 async function getSession() {
   if (_session) return _session
@@ -81,7 +93,7 @@ export default function TryIt() {
 
   const initCanvas = useCallback((node: HTMLCanvasElement | null) => {
     if (!node) return
-    ;(canvasRef as any).current = node
+    canvasRef.current = node
     const ctx = node.getContext('2d')
     if (!ctx) return
     ctx.fillStyle = '#000000'
@@ -150,6 +162,7 @@ export default function TryIt() {
     try {
       const session = await getSession()
       const ort = window.ort
+      if (!ort) throw new Error('ONNX Runtime failed to load')
 
       // Crop digit to bounding box, center on 280x280, scale to 28x28
       const cropped = cropToCanvas(canvas)
