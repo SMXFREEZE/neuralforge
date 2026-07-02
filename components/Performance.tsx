@@ -39,7 +39,7 @@ export default function Performance({ active }: { active: boolean }) {
     <>
       <div className="page-header">
         <h1 className="page-title">Performance Benchmarks</h1>
-        <p className="page-subtitle">NeuralForge vs CPU and GPU baselines: latency, throughput, energy efficiency</p>
+        <p className="page-subtitle">NeuralForge vs CPU and GPU baselines — modeled/estimated figures (cycle-accurate simulator + datasheet power), not hardware measurements</p>
       </div>
 
       <div className="grid-4" style={{ marginBottom: 24 }}>

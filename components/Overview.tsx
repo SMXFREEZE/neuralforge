@@ -41,7 +41,7 @@ export default function Overview() {
     <>
       <div className="page-header">
         <h1 className="page-title">System Overview</h1>
-        <p className="page-subtitle">NeuralForge FPGA: Xilinx XC7A35T Artix-7, 100 MHz, INT8 LeNet-5</p>
+        <p className="page-subtitle">NeuralForge FPGA: Xilinx XC7A35T Artix-7, 100 MHz, INT8 LeNet-5 — all figures modeled/estimated (simulator + datasheet), not measured on hardware</p>
       </div>
 
       <div className="grid-4">

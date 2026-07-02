@@ -45,12 +45,17 @@ function softmax(arr: number[]): number[] {
   return exp.map(v => Math.round((v / sum) * 1000) / 1000)
 }
 
-function simulateFpgaMetrics() {
-  const baseCycles = 41437
-  const jitter = Math.floor((Math.random() - 0.5) * 400)
-  const cycles = baseCycles + jitter
-  const latency_us = Math.round((cycles / 100) * 10) / 10
-  return { cycles, latency_us }
+// Deterministic cycle count reported by the cycle-accurate simulator model
+// (sw/fpga_simulator.py — the per-layer cycle sum for one LeNet-5 inference
+// is input-independent: 47,732 cycles => 477.3 µs at 100 MHz).
+const SIMULATOR_CYCLES = 47732
+const SIMULATOR_CLOCK_MHZ = 100
+
+function simulatorMetrics() {
+  return {
+    cycles: SIMULATOR_CYCLES,
+    latency_us: Math.round((SIMULATOR_CYCLES / SIMULATOR_CLOCK_MHZ) * 10) / 10,
+  }
 }
 
 export default function TryIt() {
@@ -155,7 +160,7 @@ export default function TryIt() {
       const confidence = softmax(logits)
       const digit = confidence.indexOf(Math.max(...confidence))
 
-      setResult({ digit, confidence, ...simulateFpgaMetrics() })
+      setResult({ digit, confidence, ...simulatorMetrics() })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Classification failed')
     } finally {
@@ -262,7 +267,7 @@ export default function TryIt() {
             <span className="hiw-num">3</span>
             <div>
               <div className="hiw-title">FPGA Simulation</div>
-              <div className="hiw-desc">Latency and cycle count are computed from real NeuralForge hardware measurements at 100 MHz on the Artix-7.</div>
+              <div className="hiw-desc">Latency and cycle count come from the cycle-accurate simulator model (sw/fpga_simulator.py) at a modeled 100 MHz Artix-7 clock — not measurements from physical hardware.</div>
             </div>
           </div>
         </div>
