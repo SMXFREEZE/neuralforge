@@ -37,6 +37,22 @@ module tb_conv_engine;
     integer i;
     integer pass_count, fail_count;
 
+    // 'valid' is a single-cycle pulse out of the 4-stage pipeline; wait for
+    // it with a bounded loop instead of counting a fixed number of cycles.
+    // If the pipeline never produces a result, valid stays 0 and the
+    // subsequent check fails.
+    integer wv;
+    task wait_valid;
+        begin
+            wv = 0;
+            @(posedge clk); #1;
+            while (!valid && wv < 20) begin
+                @(posedge clk); #1;
+                wv = wv + 1;
+            end
+        end
+    endtask
+
     initial begin
         $display("==========================================================");
         $display("  NeuralForge Convolution Engine Testbench");
@@ -78,9 +94,7 @@ module tb_conv_engine;
         @(posedge clk); #1;
         start = 0;
 
-        // Wait for pipeline to produce result (4 stages)
-        repeat(5) @(posedge clk);
-        #1;
+        wait_valid;
 
         if (valid && conv_out === 32'sd5) begin
             pass_count = pass_count + 1;
@@ -103,8 +117,7 @@ module tb_conv_engine;
         @(posedge clk); #1;
         start = 0;
 
-        repeat(5) @(posedge clk);
-        #1;
+        wait_valid;
 
         // Expected: 1+2+3+4+5+6+7+8+9 = 45
         if (valid && conv_out === 32'sd45) begin
@@ -125,8 +138,7 @@ module tb_conv_engine;
         @(posedge clk); #1;
         start = 0;
 
-        repeat(5) @(posedge clk);
-        #1;
+        wait_valid;
 
         // Expected: 45 + 100 = 145
         if (valid && conv_out === 32'sd145) begin
@@ -152,8 +164,7 @@ module tb_conv_engine;
         @(posedge clk); #1;
         start = 0;
 
-        repeat(5) @(posedge clk);
-        #1;
+        wait_valid;
 
         // Expected: 0*1 + (-1)*2 + 0*3 + (-1)*4 + 4*5 + (-1)*6 + 0*7 + (-1)*8 + 0*9
         //         = 0 - 2 + 0 - 4 + 20 - 6 + 0 - 8 + 0 = 0

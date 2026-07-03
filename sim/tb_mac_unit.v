@@ -44,8 +44,10 @@ module tb_mac_unit;
         input signed [31:0] expected_val;
         input [127:0] test_name;
         begin
-            @(posedge clk); // Wait one more cycle for accumulator to update
-            #1;
+            // The caller has already advanced past the accumulating clock
+            // edge (inputs are sampled on that edge), so sample acc directly.
+            // Waiting another cycle here would accumulate the same operands
+            // a second time while en is still asserted.
             if (acc === expected_val) begin
                 pass_count = pass_count + 1;
                 $display("[PASS] %0s: acc = %0d (expected %0d)", test_name, acc, expected_val);
