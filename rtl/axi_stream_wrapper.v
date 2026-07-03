@@ -183,6 +183,14 @@ module axi_stream_wrapper (
             led_done       <= 1'b0;
             ibuf_wr_en     <= 1'b0;
             ibuf_swap      <= 1'b0;
+            ibuf_rd_addr   <= 10'd0;
+            wbuf_rd_addr   <= 11'd0;
+            conv_start     <= 1'b0;
+            pool_start     <= 1'b0;
+            act_en         <= 1'b0;
+            sys_en         <= 1'b0;
+            sys_clear      <= 1'b0;
+            sys_load_weights <= 1'b0;
             m_axis_tvalid  <= 1'b0;
             m_axis_tdata   <= 8'd0;
         end else begin
@@ -205,6 +213,7 @@ module axi_stream_wrapper (
                         if (s_axis_tlast) begin
                             state <= S_COMPUTE;
                             ibuf_swap <= 1'b1;
+                            ibuf_rd_addr <= 10'd0; // Read pixel 0 for the placeholder argmax
                             compute_timer <= 16'd0;
                         end
                     end
@@ -220,6 +229,7 @@ module axi_stream_wrapper (
                         if (pixel_count == 10'd783 || s_axis_tlast) begin
                             state <= S_COMPUTE;
                             ibuf_swap <= 1'b1;
+                            ibuf_rd_addr <= 10'd0; // Read pixel 0 for the placeholder argmax
                             compute_timer <= 16'd0;
                         end
                     end
@@ -233,7 +243,9 @@ module axi_stream_wrapper (
                 end
 
                 S_ARGMAX: begin
-                    predicted_digit <= ibuf_rd_data[7:4]; // Sync with dummy test
+                    // Placeholder datapath: "digit" = high nibble of pixel 0
+                    // of the active buffer (deterministic for the testbench)
+                    predicted_digit <= ibuf_rd_data[7:4];
                     led_digit <= ibuf_rd_data[7:4];
                     state <= S_SEND_RESULT;
                 end

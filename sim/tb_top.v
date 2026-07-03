@@ -165,9 +165,13 @@ module tb_top;
         $display("    led_busy: %0b", led_busy);
         $display("    led_done: %0b", led_done);
 
-        if (led_done) begin
+        // The placeholder datapath reports pixel[0][7:4]; every pixel sent
+        // was 0x55, so the digit must be 5 (and never X)
+        if (led_done && led_digit === 4'd5) begin
             $display("\n[PASS] End-to-end pipeline completed successfully");
             $display("       Predicted class: %0d", led_digit);
+        end else if (led_done) begin
+            $display("\n[FAIL] Completed but digit = %0d (expected 5)", led_digit);
         end else begin
             $display("\n[FAIL] Pipeline did not complete");
         end

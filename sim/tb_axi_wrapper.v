@@ -44,8 +44,10 @@ module tb_axi_wrapper();
 
     // Test Sequence
     integer i;
+    reg result_ok;
     initial begin
         // Initialize Inputs
+        result_ok = 1;
         rst_n = 0;
         s_axis_tdata = 8'd0;
         s_axis_tvalid = 0;
@@ -91,16 +93,29 @@ module tb_axi_wrapper();
 
         // Wait for prediction
         wait(m_axis_tvalid);
-        $display("Result Output: %d", m_axis_tdata);
-        
-        // Ack the result
-        @(posedge clk);
         #1;
+        $display("Result Output: %d", m_axis_tdata);
 
-        if (led_done)
-            $display("--- Test Passed ---");
-        else
+        // The placeholder datapath returns pixel[0][7:4]; this TB sends
+        // pixel 0 = 8'd0, so the result must be 0 (and never X)
+        if (m_axis_tdata !== 8'd0) begin
+            result_ok = 0;
+            $display("Unexpected result: %0d (expected 0)", m_axis_tdata);
+        end
+
+        // Ack the result; led_done rises two cycles after the AXI handshake
+        // (S_SEND_RESULT -> S_DONE -> led_done), so wait for it (bounded)
+        for (i = 0; i < 10 && !led_done; i = i + 1) begin
+            @(posedge clk);
+            #1;
+        end
+
+        if (!led_done)
             $display("--- Test Failed: led_done not set ---");
+        else if (!result_ok)
+            $display("--- Test Failed: wrong result ---");
+        else
+            $display("--- Test Passed ---");
 
         #100;
         $finish;

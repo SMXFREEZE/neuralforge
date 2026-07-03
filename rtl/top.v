@@ -212,6 +212,8 @@ module top #(
             led_error      <= 1'b0;
             ibuf_wr_en     <= 1'b0;
             ibuf_swap      <= 1'b0;
+            ibuf_rd_addr   <= 10'd0;
+            wbuf_rd_addr   <= 11'd0;
             conv_start     <= 1'b0;
             pool_start     <= 1'b0;
             act_en         <= 1'b0;
@@ -261,6 +263,7 @@ module top #(
                             // Full image received
                             state <= S_COMPUTE;
                             ibuf_swap <= 1'b1; // Swap to make new data active
+                            ibuf_rd_addr <= 10'd0; // Read pixel 0 for the placeholder argmax
                             compute_timer <= 16'd0;
                         end
                     end
