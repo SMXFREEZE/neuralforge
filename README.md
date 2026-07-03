@@ -167,6 +167,13 @@ vvp sim/sys_test
 iverilog -g2012 -o sim/conv_test sim/tb_conv_engine.v rtl/conv_engine.v
 vvp sim/conv_test
 
+# End-to-end tests need weights.mem in the directory you run vvp from:
+# rtl/weight_buffer.v loads it with $readmemh, which resolves relative to the
+# simulator's working directory. A pre-generated BRAM image is committed at
+# weights/weights.mem — copy it to the repo root (or regenerate it from the
+# committed INT8 model with `python sw/export_weights.py`).
+cp weights/weights.mem .
+
 # End-to-end test (any testbench can be compiled against the full RTL library)
 iverilog -g2012 -o sim/top_test sim/tb_top.v rtl/*.v
 vvp sim/top_test

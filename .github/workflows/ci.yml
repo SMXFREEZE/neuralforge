@@ -50,12 +50,17 @@ jobs:
         run: |
           set -e
           mkdir -p build
+          # rtl/weight_buffer.v loads "weights.mem" via $readmemh, which
+          # resolves relative to vvp's CWD (the repo root here). Stage the
+          # committed BRAM image; regenerate it with sw/export_weights.py.
+          cp weights/weights.mem .
           status=0
           for tb in sim/tb_*.v; do
             name=$(basename "$tb" .v)
             echo "::group::$name"
             # RTL uses SystemVerilog-2012 unpacked-array ports -> -g2012
-            iverilog -g2012 -o "build/$name" "$tb" rtl/*.v
+            # -s pins the testbench as the only simulation root module
+            iverilog -g2012 -s "$name" -o "build/$name" "$tb" rtl/*.v
             vvp "build/$name" | tee "build/$name.log"
             if grep -Eq '\[FAIL\]|TESTS FAILED|Test Failed' "build/$name.log"; then
               echo "::error::$name reported failures"
