@@ -1,7 +1,15 @@
 //============================================================================
-// NeuralForge — 4x4 Weight-Stationary Systolic Array
-// Performs 4x4 matrix multiplication using pipelined MAC units
-// Inspired by Google TPU v1 architecture
+// NeuralForge — 4x4 Output-Stationary Systolic Array
+// Performs 4x4 matrix multiplication (R = A * W) using pipelined MAC units
+//
+// Dataflow: activations flow left->right, weights flow top->bottom, and each
+// PE[r][c] keeps its own accumulator (result stays put — output-stationary).
+// Weights are pre-loaded column-by-column into local storage; during compute
+// an internal scheduler streams stored column c into the array with the
+// systolic skew (W[k][c] enters during cycle k + c), matching activations
+// A[r][k] entering row r during cycle k + r. The operands for output element
+// (r, c) meet at PE[r][c] on cycle k + r + c, so:
+//     result[r][c] = sum_k A[r][k] * W[k][c]
 //============================================================================
 
 module systolic_array (
@@ -23,12 +31,12 @@ module systolic_array (
     output reg         done             // Computation complete flag
 );
 
-    // Internal weight storage
-    reg signed [7:0] weights [0:3][0:3]; // [row][col]
+    // Internal weight storage: weights[k][c] = W[k][c], k = input-dim index
+    reg signed [7:0] weights [0:3][0:3];
 
     // Internal signals between MAC units
     wire signed [7:0] a_pass [0:3][0:4]; // Horizontal activation flow
-    wire signed [7:0] b_pass [0:4][0:3]; // Vertical weight flow (unused in weight-stationary)
+    wire signed [7:0] b_pass [0:4][0:3]; // Vertical weight flow
 
     // Pipeline counter for tracking computation progress
     reg [3:0] cycle_count;
@@ -55,6 +63,21 @@ module systolic_array (
         end
     endgenerate
 
+    // Feed stored weights into the top edge with the systolic skew:
+    // column c receives W[k][c] during cycle k + c (cycle_count tracks the
+    // cycle index since clear_acc), zero elsewhere so misaligned operands
+    // contribute nothing.
+    genvar wc;
+    generate
+        for (wc = 0; wc < 4; wc = wc + 1) begin : feed_weights
+            wire [3:0] k = cycle_count - wc[3:0];
+            assign b_pass[0][wc] =
+                (cycle_count >= wc && cycle_count <= wc + 3)
+                    ? weights[k[1:0]][wc]
+                    : 8'sd0;
+        end
+    endgenerate
+
     // Instantiate 4x4 grid of MAC units
     genvar row, col;
     generate
@@ -66,16 +89,19 @@ module systolic_array (
                     .en        (en),
                     .clear_acc (clear_acc),
                     .a         (a_pass[row][col]),
-                    .b         (weights[row][col]),   // Weight-stationary: weights don't flow
-                    .acc       (result[row][col]),
+                    .b         (b_pass[row][col]),
+                    .acc       (result[row][col]),   // Output-stationary accumulator
                     .a_out     (a_pass[row][col+1]),
-                    .b_out     ()                     // Not used in weight-stationary mode
+                    .b_out     (b_pass[row+1][col])
                 );
             end
         end
     endgenerate
 
-    // Computation progress tracking
+    // Computation progress tracking.
+    // The last operand pair (k = 3) reaches PE[3][3] during cycle
+    // k + r + c = 9 and is accumulated on the following edge, so results
+    // are final once cycle_count has passed 10.
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             cycle_count <= 4'd0;
@@ -84,7 +110,7 @@ module systolic_array (
             cycle_count <= 4'd0;
             done <= 1'b0;
         end else if (en && !done) begin
-            if (cycle_count == 4'd7) // 4 compute + 3 pipeline drain
+            if (cycle_count == 4'd10)
                 done <= 1'b1;
             else
                 cycle_count <= cycle_count + 4'd1;
