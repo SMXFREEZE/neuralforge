@@ -1,0 +1,55 @@
+{
+  "conv1_weight": {
+    "start_addr": 0,
+    "end_addr": 149,
+    "num_elements": 150
+  },
+  "conv1_bias": {
+    "start_addr": 150,
+    "end_addr": 155,
+    "num_elements": 6
+  },
+  "conv2_weight": {
+    "start_addr": 156,
+    "end_addr": 2555,
+    "num_elements": 2400
+  },
+  "conv2_bias": {
+    "start_addr": 2556,
+    "end_addr": 2571,
+    "num_elements": 16
+  },
+  "fc1_weight": {
+    "start_addr": 2572,
+    "end_addr": 33291,
+    "num_elements": 30720
+  },
+  "fc1_bias": {
+    "start_addr": 33292,
+    "end_addr": 33411,
+    "num_elements": 120
+  },
+  "fc2_weight": {
+    "start_addr": 33412,
+    "end_addr": 43491,
+    "num_elements": 10080
+  },
+  "fc2_bias": {
+    "start_addr": 43492,
+    "end_addr": 43575,
+    "num_elements": 84
+  },
+  "fc3_weight": {
+    "start_addr": 43576,
+    "end_addr": 44415,
+    "num_elements": 840
+  },
+  "fc3_bias": {
+    "start_addr": 44416,
+    "end_addr": 44425,
+    "num_elements": 10
+  },
+  "_total_entries": 44426,
+  "_memory_depth": 65536,
+  "_bram_depth": 2048
+}
